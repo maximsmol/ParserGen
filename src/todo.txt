@@ -1,0 +1,9 @@
+fixme:
+&any does not report the source string correctly in escapes
+
+todo:
+modularize tokenizing and parse-tree -> AST conversions
+pass around the parsing table, fiXs and foXs together
+guided conflict resolution
+step-by-step parsing
+styled terminal output

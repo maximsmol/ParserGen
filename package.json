@@ -1,0 +1,18 @@
+{
+  "dependencies": {
+    "babel-register": "^6.26.0",
+    "blessed": "^0.1.81",
+    "escape-string-regexp": "^1.0.5",
+    "js-string-escape": "^1.0.1"
+  },
+  "devDependencies": {
+    "babel-eslint": "^8.2.3",
+    "babel-preset-env": "^1.7.0",
+    "babel-preset-flow": "^6.23.0",
+    "eslint": "^4.19.1",
+    "eslint-plugin-babel": "^5.1.0",
+    "eslint-plugin-flowtype": "^2.46.3",
+    "eslint-plugin-react": "^7.8.2",
+    "flow-bin": "^0.72.0"
+  }
+}
