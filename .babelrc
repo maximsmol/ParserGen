@@ -1,0 +1,16 @@
+{
+  "presets": [
+    ["env", {
+      "targets": {
+        "node": "current"
+      }}],
+    "flow"
+  ],
+  "plugins": [
+    // "transform-export-extensions",
+    // "transform-class-properties",
+    // ["transform-react-jsx", {
+    //     "pragma": "dom"
+    // }]
+  ]
+}

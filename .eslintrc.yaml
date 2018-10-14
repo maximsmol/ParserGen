@@ -1,0 +1,278 @@
+parser: babel-eslint
+env:
+  es6: true
+  node: true
+plugins:
+  - babel
+  - flowtype
+  # - react # for jsx
+settings:
+  flowtype:
+    onlyFilesWithFlowAnnotation: true
+rules:
+  no-await-in-loop: warn
+  no-compare-neg-zero: error
+  no-cond-assign:
+    - warn
+    - except-parens
+  no-console: warn
+  no-constant-condition: warn
+  no-debugger: warn
+  no-dupe-args: error
+  no-dupe-keys: error
+  no-duplicate-case: error
+  no-empty: warn
+  no-empty-character-class: error
+  no-ex-assign: warn
+  no-extra-boolean-cast: error
+  no-extra-parens:
+    - warn
+    - all
+  no-extra-semi: error
+  no-func-assign: error
+  no-inner-declarations: error
+  no-invalid-regexp: error
+  no-irregular-whitespace:
+    - error
+    - skipRegExps: true
+      skipTemplates: true
+  no-obj-calls: error
+  no-unexpected-multiline: error
+  no-unreachable: warn
+  no-unsafe-finally: error
+  no-unsafe-negation: error
+  use-isnan: error
+  valid-typeof: error
+
+  array-callback-return: error
+  block-scoped-var: error
+  class-methods-use-this: error
+  consistent-return: error
+  dot-location: # todo
+    - warn
+    - property
+  dot-notation: error
+  eqeqeq:
+    - error
+    - always
+    - 'null': ignore
+  guard-for-in: error
+  no-alert: warn
+  no-caller: error
+  no-case-declarations: error
+  no-else-return: error
+  no-empty-function: warn
+  no-empty-pattern: error
+  no-eval: error
+  no-extend-native: error
+  no-extra-bind: error
+  no-extra-label: error
+  no-fallthrough: warn
+  no-global-assign: error
+  no-implicit-coercion: error
+  no-implicit-globals: error
+  no-implied-eval: error
+  # no-invalid-this: error # reenabled in babel
+  no-iterator: error
+  no-lone-blocks: warn
+  # no-loop-func: error # who even uses vars still
+  no-multi-str: error
+  no-new: error
+  no-new-func: error
+  no-new-wrappers: error
+  no-octal: warn
+  no-proto: error
+  no-redeclare: error
+  no-script-url: error
+  no-self-assign: error
+  no-self-compare: error
+  no-throw-literal: error
+  no-unmodified-loop-condition: error
+  no-unused-expressions: error
+  no-unused-labels: warn
+  no-useless-call: warn
+  no-useless-concat: warn
+  no-useless-escape: error
+  no-useless-return: error
+  no-void: error
+  no-with: error
+  radix:
+    - error
+    - as-needed
+  wrap-iife: error
+  # yoda:
+  #   - error
+  #   - never
+  #   - exceptRange: true
+  strict: error
+  init-declarations: warn
+  no-catch-shadow: error
+  no-delete-var: error
+  no-shadow-restricted-names: error
+  no-undef:
+    - error
+    - typeof: true
+  no-undef-init: error
+  no-unused-vars:
+    - warn
+    - ignoreRestSiblings: true # todo
+  # no-use-before-define: error
+  brace-style:
+    - warn
+    - stroustrup
+    - allowSingleLine: true
+  comma-style: warn
+  consistent-this:
+    - error
+    - self
+  eol-last: error
+  func-names:
+    - error
+    - as-needed
+  func-style: error
+  indent:
+    - error
+    - 2
+  linebreak-style:
+    - error
+    - unix
+  #new-cap: error # reenabled in babel
+  new-parens: error
+  no-array-constructor: error
+  no-lonely-if: error
+  no-mixed-spaces-and-tabs:
+    - error
+    - smart-tabs
+  no-new-object: error
+  no-trailing-spaces: error
+  no-unneeded-ternary: error
+  operator-assignment: warn
+  quotes:
+    - warn
+    - single
+  #semi: error # reenabled in babel
+  unicode-bom: error
+
+  # - - -
+  # babel
+  babel/new-cap: error
+  babel/no-invalid-this: error
+  babel/semi: error
+
+  # - - -
+  # flowtype
+  flowtype/boolean-style:
+    - error
+    - bool
+  flowtype/define-flow-type: error
+  flowtype/no-dupe-keys: error
+  flowtype/no-types-missing-file-annotation: error
+  flowtype/no-weak-types: warn
+  flowtype/object-type-delimiter: error
+  flowtype/require-parameter-type:
+    - warn
+    - excludeArrowFunctions: expressionsOnly
+  flowtype/require-return-type:
+    - warn
+    - always
+    - excludeArrowFunctions: expressionsOnly
+  flowtype/require-valid-file-annotation:
+    - error
+    - always
+    - annotationStyle: line
+  # flowtype/require-variable-type: warn
+  flowtype/semi: error
+  flowtype/use-flow-type: error
+
+  # # - - -
+  # # jsx
+  # react/jsx-boolean-value: error
+  # # react/jsx-filename-extension: error # react-native does not support .jsx
+  # react/jsx-indent:
+  #   - error
+  #   - 2
+  # react/jsx-indent-props:
+  #   - error
+  #   - 2
+  # # react/jsx-key: error # ok because lib/ren needs no keys
+  # # react/jsx-no-bind: warn # todo # ok because lib/ren renders only once
+  # react/jsx-no-duplicate-props:
+  #   - error
+  #   - ignoreCase: true
+  # react/jsx-no-target-blank: error
+  # react/jsx-no-undef: error
+  # react/jsx-curly-brace-presence:
+  #   - error
+  #   - never
+  # react/jsx-pascal-case:
+  #   - error
+  #   - allowAllCaps: true
+  # react/jsx-uses-react: error
+  # react/jsx-uses-vars: error
+
+  # # - - -
+  # # node
+  # node/no-extraneous-import: error
+  # node/no-extraneous-require: error
+  # node/no-missing-import: error
+  # node/no-missing-require: error
+  # node/no-unpublished-bin: error
+  # node/no-unpublished-import: error
+  # node/no-unpublished-require: error
+  # node/process-exit-as-throw: error
+  # node/shebang: error
+  # node/no-deprecated-api: error
+  # node/exports-style:
+  #   - error
+  #   - module.exports
+  #   - allowBatchAssign: true
+
+  # # - - -
+  # # react
+  # react/button-has-type: error
+  # react/default-props-match-prop-types:
+  #   - error
+  #   - allowRequiredDefaults: true # needed for flow
+  # react/display-name: warn
+  # react/forbid-component-props: warn # does not work with react-native # todo
+  # react/forbid-prop-types: warn # no weak types
+  # # react/forbid-foreign-prop-types # todo
+  # react/no-access-state-in-setstate: error
+  # react/no-array-index-key: error
+  # react/no-children-prop: error
+  # react/no-deprecated: error
+  # react/no-did-mount-set-state: error
+  # react/no-did-update-set-state: error
+  # react/no-direct-mutation-state: error
+  # react/no-find-dom-node: error
+  # react/no-is-mounted: error
+  # react/no-redundant-should-component-update: error
+  # react/no-render-return-value: error
+  # # react/no-set-state # todo: use with reactive?
+  # react/no-typos: error
+  # react/no-string-refs: error
+  # # react/no-this-in-sfc: error # todo
+  # react/no-unknown-property: error
+  # react/no-unused-prop-types: error
+  # react/no-unused-state: error
+  # react/no-will-update-set-state: error
+  # react/prefer-es6-class: error
+  # react/prefer-stateless-function: warn
+  # react/prop-types: warn
+  # react/react-in-jsx-scope: error
+  # # todo: does not play well with flow
+  # # react/require-default-props:
+  # #   - error
+  # #   - forbidDefaultForRequired: true
+  # react/require-optimization: warn
+  # react/require-render-return: error
+  # react/self-closing-comp: error
+  # react/style-prop-object: error
+  # react/void-dom-elements-no-children: error
+
+  # # - - -
+  # # react-native
+  # react-native/no-unused-styles: warn
+  # react-native/split-platform-components: error
+  # react-native/no-inline-styles: warn
+  # react-native/no-color-literals: warn

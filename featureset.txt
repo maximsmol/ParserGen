@@ -1,0 +1,5 @@
+- built-in currying
+- @ // <=> $ &
+- mathematical notation
+- multi-level notation
+- custom operators/notation
