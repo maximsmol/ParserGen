@@ -1,5 +1,13 @@
 import {tok as gtok, ref, special, epsilon, buildGrammar, partEq} from './alg/ll1/grammarTools';
 import {grammarRep, grammar} from './alg/ll1/bootstrap_grammar';
+import escapeString from 'js-string-escape';
+
+const tok = x => {
+  if (!/[a-z]/.test(x[0]))
+    throw new Error(`Token id ${x} is invalid.`);
+  return gtok(x);
+};
+const lit = x => gtok(`'${escapeString(x)}'`);
 
 import {rulesToStrNumbered, tableToStr, grammarRepToString} from './alg/ll1/grammar_renderer';
 
@@ -13,6 +21,9 @@ import {parseTable} from './alg/ll1/parseTable';
 const fis = firstSets(grammar);
 const foAs = followSet(grammar, fis.fiAs);
 const table = parseTable(grammar, {fiAs: fis.fiAs, fiWs: fis.fiWs, foAs});
+console.log('Hardcoded grammar table:');
+console.log(tableToStr(grammar, table));
+console.log('Reading grammar from file "grammarGrammar.ll":');
 
 const parseTableFromGrammar = g => {
   const fis = firstSets(g); const foAs = followSet(g, fis.fiAs);
@@ -48,7 +59,7 @@ import {parse} from './alg/ll1/parse';
       if (id[0] === '&')
         return [special(id.substring(1))];
       if (/[a-z]/.test(id[0]))
-        return [gtok(id)];
+        return [tok(id)];
       return [ref(id)];
     }
     if (!partEq(subChild.x, ref('Str')))
@@ -103,6 +114,12 @@ import {parse} from './alg/ll1/parse';
     readGrammarRep[id.str] = collectSubs(subs);
   }
 
-  const readG = buildGrammar(readGrammarRep);
-  const readTable = parseTableFromGrammar(readG);
+  try {
+    const readG = buildGrammar(readGrammarRep);
+    const readTable = parseTableFromGrammar(readG);
+    console.log(tableToStr(readG, readTable));
+  }
+  catch(e) {
+
+  }
 })();
