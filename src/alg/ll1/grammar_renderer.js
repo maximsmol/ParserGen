@@ -1,3 +1,5 @@
+import escapeString from 'js-string-escape';
+
 import {renderTabular} from '../../util/renderTabular';
 import {repGrammar} from './grammarTools';
 
@@ -22,7 +24,9 @@ export const renderSubPart = x => {
   if (x['?'] === 'special')
     return x.x === 'epsilon' ? '&' : '&'+x.x;
   if (x['?'] === 'tok')
-    return x.x;
+    return x.x.length === 1 ? '_'+x.x : x.x;
+  if (x['?'] === 'lit')
+    return escapeString(x.x);
   return `${x['?']}/${x.x}`;
 };
 export const renderSub = sub => sub.map(renderSubPart);

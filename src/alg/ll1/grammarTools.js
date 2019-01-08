@@ -6,6 +6,7 @@ export const tagPart = (tag, x) => ({
 
 export const ref = x => tagPart('ref', x);
 export const tok = x => tagPart('tok', x);
+export const lit = x => tagPart('lit', x);
 export const special = x => tagPart('special', x);
 export const epsilon = special('epsilon');
 

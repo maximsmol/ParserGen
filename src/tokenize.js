@@ -1,10 +1,9 @@
 import {Transform} from 'stream';
 
-import {tagPart, tok, special, partEq} from './alg/ll1/grammarTools';
+import {tagPart, tok, lit, special, partEq} from './alg/ll1/grammarTools';
 
 import escapeStringRegexp from 'escape-string-regexp';
 import escapeString from 'js-string-escape';
-const lit = x => tok(`'${escapeString(x)}'`);
 
 const internal = x => tagPart('internal', x);
 
