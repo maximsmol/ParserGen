@@ -1,13 +1,6 @@
-import {tok as gtok, ref, special, epsilon, buildGrammar, partEq} from './alg/ll1/grammarTools';
+import {tok, lit, ref, special, epsilon, buildGrammar, partEq} from './alg/ll1/grammarTools';
 import {grammarRep, grammar} from './alg/ll1/bootstrap_grammar';
 import escapeString from 'js-string-escape';
-
-const tok = x => {
-  if (!/[a-z]/.test(x[0]))
-    throw new Error(`Token id ${x} is invalid.`);
-  return gtok(x);
-};
-const lit = x => gtok(`'${escapeString(x)}'`);
 
 import {rulesToStrNumbered, tableToStr, grammarRepToString} from './alg/ll1/grammar_renderer';
 
@@ -20,6 +13,8 @@ import {parseTable} from './alg/ll1/parseTable';
 
 const fis = firstSets(grammar);
 const foAs = followSet(grammar, fis.fiAs);
+// console.log(fis);
+// console.log(foAs);
 const table = parseTable(grammar, {fiAs: fis.fiAs, fiWs: fis.fiWs, foAs});
 console.log('Hardcoded grammar table:');
 console.log(tableToStr(grammar, table));

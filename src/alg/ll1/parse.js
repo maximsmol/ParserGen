@@ -133,7 +133,7 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
       }
       node.children.reverse();
     }
-    else if (x['?'] === 'tok') {
+    else if (x['?'] === 'tok' || x['?'] === 'lit') {
       if (!partEq(t, x))
         throw new Error(`Parsing error.\nT=${renderSubPart(t)} <-| ${escapeString(str)}\nExpected: ${renderSubPart(x)}\n${inspectdeep(parseStack)}`);
       if (trace)

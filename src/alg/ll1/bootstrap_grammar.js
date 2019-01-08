@@ -1,12 +1,4 @@
-import {tok as gtok, ref, special, epsilon, buildGrammar} from './grammarTools';
-import escapeString from 'js-string-escape';
-
-const tok = x => {
-  if (!/[a-z]/.test(x[0]))
-    throw new Error(`Token id ${x} is invalid.`);
-  return gtok(x);
-};
-const lit = x => gtok(`'${escapeString(x)}'`);
+import {tok, lit, ref, special, epsilon, buildGrammar} from './grammarTools';
 
 export const grammarRep = {
   S: [[ref('Rules')]],
