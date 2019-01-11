@@ -470,7 +470,13 @@ class RegexDescent {
         x.push(this.parseBound());
     }
 
-    return x;
+    if (x.length === 1)
+      return x[0];
+
+    return {
+      '?': '()',
+      x, capture: false
+    };
   }
 
   // ERE:
@@ -499,17 +505,14 @@ class RegexDescent {
     if (this.peek() === '|' && this.errOnOrphanPipe)
       this.err('pipe cannot start a regex');
 
-    const x = this.parse_();
+    let x = this.parse_();
 
     if (!this.isEOF())
       this.err('parser error: did not reach EOF after parse');
     if (this.regex[this.i-1] === '|' && this.errOnOrphanPipe)
       this.err('pipe cannot end a regex');
 
-    return {
-      '?': '()',
-      x, capture: false
-    };
+    return x;
   }
 }
 
