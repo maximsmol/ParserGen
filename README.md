@@ -2,6 +2,8 @@ parserGen is an LL(1) parser generator framework, that focuses on advanced error
 
 ## Status
 
+[![Video](vid.png)](https://youtu.be/txinLs_xuvc)
+
 ![Screenshot](screenshot.png)
 
 The screenshot shows parserGen displaying the hardcoded LL(1) parsing table that is used to read user grammars, and the roughly identical parsing table generated from the [user grammar file](src/grammarGrammar.ll).
