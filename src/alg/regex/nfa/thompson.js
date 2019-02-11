@@ -7,8 +7,14 @@ class ThompsonConstructor {
   }
 
   addArrow(s, f, type, x) {
-    this.arrows.push({
-      '?': type, s, f, x
+    let adjL = this.arrows[s];
+    if (adjL == null) {
+      adjL = [];
+      this.arrows[s] = adjL;
+    }
+
+    adjL.push({
+      '?': type, f, x
     });
   }
   newStateId() {
@@ -119,8 +125,15 @@ class ThompsonConstructor {
   }
 
   build(regex) {
+    this.arrows[1] = []; // last state has no out arrows
+
     const lastState = this.build_(0, regex);
     this.addArrow(lastState, 1, '&', null);
+
+    // for (let i = 0; i < lastState; ++i)
+    //   if (this.arrows[i] == null)
+    //     this.arrows[i] = [];
+
     return this.arrows;
   }
 }
