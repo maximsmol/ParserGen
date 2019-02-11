@@ -1,0 +1,5 @@
+id: [A-Z0-9][^ \n\r\t]*
+lambda_arrow: ->
+lambda_start: \\
+space: [ ]
+
