@@ -27,7 +27,7 @@ export const followSet = (g, fiAs) => {
         set.set(x, m);
       }
       if (!m.has(meta)) {
-        changed = true; // todo: ???
+        changed = true; // todo: was commented out for some reason
         m.add(meta);
       }
     };
