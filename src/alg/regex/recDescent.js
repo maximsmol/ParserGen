@@ -2,6 +2,14 @@ import escapeString from 'js-string-escape';
 
 import {coerceWDefault} from '../../util/coerceWDefault';
 
+const withSourceMapping = (arr, mapping) => {
+  if (arr.sourceMapInfo != null)
+    throw new Error('trying to add a sourcemap twice');
+
+  arr.sourceMapInfo = mapping;
+  return arr;
+};
+
 // http://pubs.opengroup.org/onlinepubs/9699919799/
 class RegexDescent {
   regex;
@@ -54,6 +62,8 @@ class RegexDescent {
         }
       }
     }, config);
+
+    this.sourceMapInfo = null;
   }
 
   peek() {
@@ -119,6 +129,28 @@ class RegexDescent {
     return res;
   }
 
+  startSourceMapping() {
+    return {
+      range: {
+        start: this.i,
+        end: null
+      },
+      anchor: null
+    };
+  }
+  setSourceMappingAnchor(mapping) {
+    if (mapping.anchor != null)
+      throw new Error('trying to anchor a sourcemap twice');
+
+    mapping.anchor = this.i-1;
+  }
+  endSourceMapping(mapping) {
+    if (mapping.range.end != null)
+      throw new Error('trying to end a sourcemap twice');
+
+    mapping.range.end = this.i;
+  }
+
   // special characters
   // ERE:
   //   .[\( except in bracket
@@ -138,6 +170,7 @@ class RegexDescent {
   //   ^ if anchor
   //   $ if anchor
   parseChar(controlChars, autoescape) {
+    const mapping = this.startSourceMapping();
     if (this.mayConsume('\\')) {
       if (this.isEOF()) {
         if (!this.config.allowEOFEscape)
@@ -161,11 +194,12 @@ class RegexDescent {
           n *= 16;
           n += hexCharsUC.includes(c) ? 10+hexCharsUC.indexOf(c) : hexChars.indexOf(c);
         }
+        this.endSourceMapping(mapping);
 
-        return {
+        return withSourceMapping({
           '?': 'char',
           x: String.fromCharCode(n), escaped: true
-        };
+        }, mapping);
       }
 
 
@@ -173,22 +207,27 @@ class RegexDescent {
         this.err(`invalid escape \\${x} at ${this.i}. can escape any of ${escapeString(controlChars)}`);
 
       this.next();
-      return {
+      this.endSourceMapping(mapping);
+      return withSourceMapping({
         '?': 'char',
         x, escaped: true
-      };
+      }, mapping);
     }
 
     let x = this.peek();
     this.next();
-    if (x === '.')
-      return {'?': '.'};
+    if (x === '.') {
+      this.endSourceMapping(mapping);
+      return withSourceMapping({'?': '.'}, mapping);
+    }
 
-    if (autoescape.includes(x))
-      return {
+    if (autoescape.includes(x)) {
+      this.endSourceMapping(mapping);
+      return withSourceMapping({
         '?': 'char',
         x, escaped: true
-      };
+      }, mapping);
+    }
 
     if (x === ')' && this.config.errOnUnmatchedParen)
       this.err(`unmatched parenthesis at ${this.i}`);
@@ -197,39 +236,47 @@ class RegexDescent {
     if (x === '|' && this.config.errOnOrphanPipe)
       this.err(`orphan | at ${this.i}`);
 
-    return {
+    this.endSourceMapping(mapping);
+    return withSourceMapping({
       '?': 'char',
       x, escaped: false
-    };
+    }, mapping);
   }
 
   parseAtom() {
+    const atomMapping = this.startSourceMapping();
     if (this.mayConsume('(')) {
       if (this.mayConsume(')')) {
         if (!this.config.allowEmptyGroup)
           this.err(`empty group at ${this.i}`);
-        return {
+        this.endSourceMapping(atomMapping);
+        return withSourceMapping({
           '?': '&'
-        };
+        }, atomMapping);
       }
 
       const res = [];
 
       let capture = true;
+
+      const qMarkMapping = this.startSourceMapping();
       if (this.mayConsume('?'))
         if (this.mayConsume(':'))
           capture = false;
-        else
-          res.push({'?': 'char', x: '?'});
+        else {
+          this.endSourceMapping(qMarkMapping);
+          res.push(withSourceMapping({'?': 'char', x: '?'}, qMarkMapping));
+        }
 
       res.push(this.parse_());
       this.mustConsume(')');
 
-      return {
+      this.endSourceMapping(atomMapping);
+      return withSourceMapping({
         '?': '()',
         x: res,
         capture
-      };
+      }, atomMapping);
     }
 
     // if in range a-b, a comes after b, it is either ignored or err'd
@@ -248,46 +295,62 @@ class RegexDescent {
       let chars = [];
       if (this.config.charClass.disableEscaping) { // POSIX ERE mode
         if ('-]'.includes(this.peek())) {
-          chars.push({
-            '?': 'char',
-            x: this.peek(), escaped: true
-          });
+          const mapping = this.startSourceMapping();
+          const x = this.peek();
           this.next();
+          this.endSourceMapping(mapping);
+
+          chars.push(withSourceMapping({
+            '?': 'char',
+            x, escaped: true
+          }, mapping));
         }
 
         while (!this.mayConsume(']')) {
+          const charMapping = this.startSourceMapping();
+          const charRangeMapping = this.startSourceMapping();
+
           const a = this.peek();
           this.next();
+          this.endSourceMapping(charMapping);
 
           if (a === '-' && this.peek() !== ']')
             this.err(`ranges share an endpoint at ${this.i}`);
 
+          const dashMapping = this.startSourceMapping();
           if (this.mayConsume('-')) {
+            this.setSourceMappingAnchor(charRangeMapping);
+            this.endSourceMapping(dashMapping);
+
             if (this.peek() !== ']') {
               if (!this.config.charClass.allowRanges)
                 this.err(`unacceptable range ${a.x}-${b.x} at ${this.i} as range support is disabled`);
 
+              const endCharMapping = this.startSourceMapping();
               const b = this.peek();
               this.next();
+              this.endSourceMapping(endCharMapping);
 
               if (this.config.charClass.errOnInvalidRange && a.charCodeAt(0) > b.charCodeAt(0))
                 this.err(`invalid range ${a}-${b} at ${this.i} as ${a} > ${b}`);
 
-              chars.push({
+              this.endSourceMapping(charRangeMapping);
+              chars.push(withSourceMapping({
                 '?': 'a-b',
-                a: {'?': 'char', x: a, escaped: true}, b: {'?': 'char', x: b, escaped: true}
-              });
+                a: withSourceMapping({'?': 'char', x: a, escaped: true}, charMapping),
+                b: withSourceMapping({'?': 'char', x: b, escaped: true}, endCharMapping)
+              }, charRangeMapping));
             }
             else {
-              chars.push({'?': 'char', x: a, escaped: true});
-              chars.push({
+              chars.push(withSourceMapping({'?': 'char', x: a, escaped: true}, charMapping));
+              chars.push(withSourceMapping({
                 '?': 'char',
                 x: '-', escaped: true
-              });
+              }, dashMapping));
             }
           }
           else
-            chars.push({'?': 'char', x: a, escaped: true});
+            chars.push(withSourceMapping({'?': 'char', x: a, escaped: true}, charMapping));
         }
       }
       else if (this.config.charClass.autoescape.closingBracketInFirstPlace || this.peek() !== ']') {
@@ -306,6 +369,8 @@ class RegexDescent {
           autoescapeChars += '-';
 
         do {
+          const charRangeMapping = this.startSourceMapping();
+
           const a = this.parseChar(controlChars, autoescapeChars);
           if (a.x === '^' && !a.escaped) {
             if (!this.config.charClass.autoescape.caretInNonfirstPlace)
@@ -320,7 +385,11 @@ class RegexDescent {
               this.err(`unescaped - at ${this.i}`);
           }
 
+          const dashMapping = this.startSourceMapping();
           if (this.mayConsume('-')) {
+            this.setSourceMappingAnchor(charRangeMapping);
+            this.endSourceMapping(dashMapping);
+
             if (this.peek() !== ']') {
               if (!this.config.charClass.allowRanges)
                 this.err(`unacceptable range ${a.x}-${b.x} at ${this.i} as range support is disabled`);
@@ -330,17 +399,18 @@ class RegexDescent {
               if (this.config.charClass.errOnInvalidRange && a.x.charCodeAt(0) > b.x.charCodeAt(0))
                 this.err(`invalid range ${a.x}-${b.x} at ${this.i} as ${a.x} > ${b.x}`);
 
-              chars.push({
+              this.endSourceMapping(charRangeMapping);
+              chars.push(withSourceMapping({
                 '?': 'a-b',
                 a, b
-              });
+              }, charRangeMapping));
             }
             else if (this.config.charClass.autoescape.dashAtTheEnd) {
               chars.push(a);
-              chars.push({
+              chars.push(withSourceMapping({
                 '?': 'char',
                 x: '-', escaped: true
-              });
+              }, dashMapping));
             }
             else
               this.err(`invalid range at ${this.i}`);
@@ -352,11 +422,12 @@ class RegexDescent {
       else
         this.err(`empty charClass at ${this.i}`);
 
-      return {
+      this.endSourceMapping(atomMapping);
+      return withSourceMapping({
         '?': '[]',
         x: chars,
         inverse
-      };
+      }, atomMapping);
     }
 
     return this.parseChar('^.[$()|*+?{\\]', '');
@@ -369,17 +440,22 @@ class RegexDescent {
   //     left brace not part of a valid interval expression – this.config.bound.minMax.autoescapeIfInvalid
   //     adjacent to each other – orphan in parseChar
   parseBound() {
+    const boundMapping = this.startSourceMapping();
+
     const x = this.parseAtom();
     if (this.isEOF())
       return x;
 
     if ('+*?'.includes(this.peek())) {
-      const res = {
-        '?': this.peek(),
-        x
-      };
+      const repeatType = this.peek();
       this.next();
-      return res;
+      this.setSourceMappingAnchor(boundMapping);
+
+      this.endSourceMapping(boundMapping);
+      return withSourceMapping({
+        '?': repeatType,
+        x
+      }, boundMapping);
     }
 
     if (this.peek() === '{') {
@@ -393,6 +469,8 @@ class RegexDescent {
       let min = 0; let max = null;
 
       if (this.mayConsume(',')) {
+        this.setSourceMappingAnchor(boundMapping);
+
         if (!this.config.bound.minMax.allowEmptyMin)
           this.err(`invalid interval expression at ${this.i}: missing a min`);
         max = this.parseNat(); // {,max}
@@ -406,11 +484,13 @@ class RegexDescent {
         }
         else { // {n}
           this.mustConsume('}');
-          return {
+
+          this.endSourceMapping(boundMapping);
+          return withSourceMapping({
             '?': '{n}',
             x,
             n: min
-          };
+          }, boundMapping);
         }
       }
       this.mustConsume('}');
@@ -425,44 +505,59 @@ class RegexDescent {
           this.err(`invalid interval expression bind at ${this.i}: max > ${this.config.bound.limit}`);
       }
 
-      return {
+      this.endSourceMapping(boundMapping);
+      return withSourceMapping({
         '?': '{a,b}',
         x,
         min, max
-      };
+      }, boundMapping);
     }
 
     return x;
   }
 
   parseConcatenation() {
+    const concatMapping = this.startSourceMapping();
+
     const x = [];
     while (!this.isEOF() && !'|)'.includes(this.peek())) { // todo: |), any other?
       if ('^$'.includes(this.peek())) {
         if (this.peek() === '^' && x.length === 0 ||
             this.peek() === '$' && ( this.isPreEOF() || '|)'.includes(this.lookahead()) )
         ) {
-          x.push({
-            '?': this.peek()
-          });
+          const anchorMapping = this.startSourceMapping();
+          const anchorType = this.peek();
           this.next();
+          this.endSourceMapping(anchorMapping);
+
+          x.push(withSourceMapping({
+            '?': anchorType
+          }, anchorMapping));
         }
         else {
           if (this.config.anchor.impossibilityHandling === 'err')
             this.err(`impossible anchor ${this.peek()} at ${this.i}`);
 
           if (this.config.anchor.impossibilityHandling === 'ignore') {
-            x.push({
-              '?': this.peek()
-            });
+            const mapping = this.startSourceMapping();
+            const char = this.peek();
             this.next();
+            this.endSourceMapping(mapping);
+
+            x.push(withSourceMapping({
+              '?': char
+            }, mapping));
           }
           else if (this.config.anchor.impossibilityHandling === 'autoescape') {
-            x.push({
-              '?': 'char',
-              x: this.peek(), escaped: true
-            });
+            const mapping = this.startSourceMapping();
+            const char = this.peek();
             this.next();
+            this.endSourceMapping(mapping);
+
+            x.push(withSourceMapping({
+              '?': 'char',
+              x: char, escaped: true
+            }, mapping));
           }
         }
       }
@@ -473,10 +568,11 @@ class RegexDescent {
     if (x.length === 1)
       return x[0];
 
-    return {
+    this.endSourceMapping(concatMapping);
+    return withSourceMapping({
       '?': '()',
       x, capture: false
-    };
+    }, concatMapping);
   }
 
   // ERE:
@@ -485,15 +581,22 @@ class RegexDescent {
   //     right after |( – orphan in parseChar
   //     right before ) – orphan in parseChar
   parseAlternation() {
+    const altMapping = this.startSourceMapping();
+
     const a = this.parseConcatenation();
     if (this.isEOF())
       return a;
 
-    if (this.mayConsume('|'))
-      return {
+    if (this.mayConsume('|')) {
+      this.setSourceMappingAnchor(altMapping);
+      const b = this.parseAlternation();
+      this.endSourceMapping(altMapping);
+
+      return withSourceMapping({
         '?': '|',
-        a, b: this.parseAlternation()
-      };
+        a, b
+      }, altMapping);
+    }
     return a;
   }
 
