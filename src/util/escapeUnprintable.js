@@ -6,5 +6,5 @@ export const escapeUnprintable = (str) =>
     .replace(/\r/g, '\\r')
     .replace(/\t/g, '\\t')
     .replace(/\v/g, '\\v')
-    .replace(/\a/g, '\\a')
+    // .replace(/\a/g, '\\a') // todo: ?
     .replace(/\p{C}/ug, x => `\\u${x.codePointAt(0)}`);
