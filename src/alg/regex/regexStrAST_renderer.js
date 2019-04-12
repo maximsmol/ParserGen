@@ -3,12 +3,14 @@ import {escape} from '../../util/escape';
 export const renderNode = (node) => {
   if (node['?'] === '&')
     return '&';
+  if (node['?'] === '.')
+    return '.';
   if (node['?'] === 'char')
     return escape(node.x);
   if (node['?'] === '[]')
     return `[${node.x.map(renderNode).join('')}]`;
-  if (node['?'] === '()')
-    return `(${node.capture ? '' : '?:'}${node.x.map(renderNode).join('')})`;
+  if (['(?=)', '(?!)', '(?<=)', '(?<!)'].includes(node['?']))
+    return `(${node.groupType.slice(1, -1)}${node.x.map(renderNode).join('')})`;
   if (node['?'] === '*')
     return `${renderNode(node.x)}*`;
   if (node['?'] === '+')
@@ -18,7 +20,7 @@ export const renderNode = (node) => {
   if (node['?'] === 'a-b')
     return `${renderNode(node.a)}-${renderNode(node.b)}`;
 
-  throw new Error('unsupported');
+  throw new Error(`unsupported: ${node['?']}`);
 };
 
 const renderASTSource1 = (node, source, indentStr) => {

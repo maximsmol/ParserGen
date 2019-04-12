@@ -4,18 +4,51 @@ import {buildNFA} from './alg/regex/nfa/thompson';
 import {NFAEval} from './alg/regex/nfa/eval';
 import {nfaToGrafviz} from './alg/regex/nfa/nfaToGrafviz';
 import {logdeep} from './util/logdeep';
+import {escapeUnprintable} from './util/escapeUnprintable';
 
-const tokenMap = {
+const regex = '..(?<!a.)';
+const parsed = parseRegex(regex);
+const nfa = buildNFA(parsed);
+logdeep(nfa);
+logdeep(nfa.lookaroundNFAs.get(4).nfa);
+const nfaEval = new NFAEval(nfa);
+const print = (nfaEval)=>{
+  for (const state of nfaEval.states) {
+    let pos = nfaEval.nfa.stateSourcePosition[state];
+    const str = regex;
+
+    if (pos === -1)
+      pos = str.length;
+
+    // have to re-escape or additional symbols added after escaping will mess up pos
+    const prefix = escapeUnprintable(regex.substring(0, pos));
+
+    console.log(`  #${state}@${prefix.length}:`);
+    console.log('  '+prefix+' '+str.substring(prefix.length));
+    console.log('  '+' '.repeat(prefix.length)+'^');
+  }
+};
+print(nfaEval);
+const str = 'abc';
+for (let i = 0; i < str.length; ++i) {
+  nfaEval.step(str[i]);
+
+  console.log(i);
+  print(nfaEval);
+}
+
+/*const tokenMap = {
   '.*[ \n\r\t\v]': 'space',
-  '.*[A-Z][a-z]*[\'?+*]?': 'id'
+  '.*[A-Z][a-z]*[\'?+*]?(?![A-Z][a-z]*[\'?+*]?)': 'id',
+  '.*.': 'char'
 };
 const regexes = Object.keys(tokenMap);
 const tokenNames = Object.values(tokenMap);
 
 const nfas = [];
 const tokens = [];
+
 for (const [regex, tok] of Object.entries(tokenMap)) {
-  console.log('a');
   nfas.push(buildNFA(parseRegex(regex)));
   tokens.push(tok);
 }
@@ -26,7 +59,6 @@ for (const nfa of nfas) {
 }
 
 import {promises as fs} from 'fs';
-import {escapeUnprintable} from './util/escapeUnprintable';
 // import escape from 'js-string-escape';
 
 const escapedRegexes = [];
@@ -35,15 +67,15 @@ for (const regex of regexes)
 const printStates = () => {
   for (let i = 0; i < nfaEvals.length; ++i) {
     console.log(i);
-    for (const state of nfaEvals[i].states.values()) {
+    for (const state of nfaEvals[i].states) {
       let pos = nfaEvals[i].nfa.stateSourcePosition[state];
       const str = escapedRegexes[i];
 
-      // have to re-escape or additional symbols added after escaping will mess up pos
-      const prefix = escapeUnprintable(regexes[i].substring(0, pos));
-
       if (pos === -1)
         pos = str.length;
+
+      // have to re-escape or additional symbols added after escaping will mess up pos
+      const prefix = escapeUnprintable(regexes[i].substring(0, pos));
 
       console.log(`  #${state}@${prefix.length}:`);
       console.log('  '+prefix+' '+str.substring(prefix.length));
@@ -55,13 +87,18 @@ const printStates = () => {
 (async ()=>{
   const str = (await fs.readFile('./src/grammarGrammar.ll')).toString();
 
-  printStates();
+  // printStates();
   for (let i = 0; i < str.length; ++i) {
     const c = str[i];
     console.log(`step('${escapeUnprintable(c)}')`);
 
-    for (let j = 0; j < nfaEvals.length; ++j)
+    for (let j = 0; j < nfaEvals.length; ++j) {
       nfaEvals[j].step(c);
-    printStates();
+
+      if (nfaEvals[j].done())
+        console.log(`found ${tokens[j]} at ${i}`);
+    }
+
+    // printStates();
   }
-})();
+})();*/
