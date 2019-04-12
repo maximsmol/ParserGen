@@ -1,8 +1,46 @@
+import {renderNode} from '../regexStrAST_renderer';
+
+const getStartOfNode = (node) => {
+  const mapping = node.sourceMapInfo;
+
+  if (mapping == null)
+    throw new Error(`mapping invalid in ${renderNode(node)}`);
+
+  if (mapping.range.start == null)
+    throw new Error(`mapping has no start in ${renderNode(node)}`);
+
+  return mapping.range.start;
+};
+const getAnchorOfNode = (node) => {
+  const mapping = node.sourceMapInfo;
+
+  if (mapping == null)
+    throw new Error(`mapping invalid in ${renderNode(node)}`);
+
+  if (mapping.anchor == null)
+    throw new Error(`mapping has no anchor in ${renderNode(node)}`);
+
+  return mapping.anchor;
+};
+const getEndOfNode = (node) => {
+  const mapping = node.sourceMapInfo;
+
+  if (mapping == null)
+    throw new Error(`mapping invalid in ${renderNode(node)}`);
+
+  if (mapping.range.end == null)
+    throw new Error(`mapping has no end in ${renderNode(node)}`);
+
+  return mapping.range.end;
+};
+
 class ThompsonConstructor {
+  stateMappings;
   arrows;
 
   constructor() {
     this.lastState = 1; // s, f, ...
+    this.stateMappings = [0, -1];
     this.arrows = [];
   }
 
@@ -17,40 +55,42 @@ class ThompsonConstructor {
       '?': type, f, x
     });
   }
-  newStateId() {
-    return ++this.lastState;
+  newStateId(sourcePosition) {
+    ++this.lastState;
+    this.stateMappings[this.lastState] = sourcePosition;
+    return this.lastState;
   }
 
   build_(s, regex) {
     if (regex['?'] === '&') {
-      const ep = this.newStateId();
+      const ep = this.newStateId(getEndOfNode(regex));
       this.addArrow(s, ep, '&', null);
       return ep;
     }
     if (regex['?'] === '.') {
-      const ch = this.newStateId();
+      const ch = this.newStateId(getEndOfNode(regex));
       this.addArrow(s, ch, '.', null);
       return ch;
     }
     if (regex['?'] === 'char') {
-      const ch = this.newStateId();
+      const ch = this.newStateId(getEndOfNode(regex));
       this.addArrow(s, ch, 'char', regex.x);
       return ch;
     }
     if (regex['?'] === '[]') {
-      const ch = this.newStateId();
+      const ch = this.newStateId(getEndOfNode(regex));
       this.addArrow(s, ch, 'class', regex.x);
       return ch;
     }
     if (regex['?'] === '|') {
-      const a = this.newStateId();
-      const b = this.newStateId();
+      const a = this.newStateId(getStartOfNode(regex.a));
+      const b = this.newStateId(getStartOfNode(regex.b));
       this.addArrow(s, a, '&', null);
       this.addArrow(s, b, '&', null);
 
       const aF = this.build_(a, regex.a);
       const bF = this.build_(b, regex.b);
-      const f = this.newStateId();
+      const f = this.newStateId(getEndOfNode(regex));
       this.addArrow(aF, f, '&', null);
       this.addArrow(bF, f, '&', null);
 
@@ -63,10 +103,10 @@ class ThompsonConstructor {
       return last;
     }
     if (regex['?'] === '*') { // todo: might be able to get rid of parse state
-      const parse = this.newStateId();
+      const parse = this.newStateId(getStartOfNode(regex));
       this.addArrow(s, parse, '&', null);
 
-      const afterParse = this.newStateId();
+      const afterParse = this.newStateId(getEndOfNode(regex));
       this.addArrow(s, afterParse, '&', null);
 
       const f = this.build_(parse, regex.x);
@@ -76,10 +116,10 @@ class ThompsonConstructor {
       return afterParse;
     }
     if (regex['?'] === '+') { // todo: might be able to get rid of parse state
-      const parse = this.newStateId();
+      const parse = this.newStateId(getStartOfNode(regex));
       this.addArrow(s, parse, '&', null);
 
-      const afterParse = this.newStateId();
+      const afterParse = this.newStateId(getEndOfNode(regex));
 
       const f = this.build_(parse, regex.x);
       this.addArrow(f, parse, '&', null);
@@ -88,10 +128,10 @@ class ThompsonConstructor {
       return afterParse;
     }
     if (regex['?'] === '?') { // todo: might be able to get rid of parse state
-      const parse = this.newStateId();
+      const parse = this.newStateId(getStartOfNode(regex));
       this.addArrow(s, parse, '&', null);
 
-      const afterParse = this.newStateId();
+      const afterParse = this.newStateId(getEndOfNode(regex));
       this.addArrow(s, afterParse, '&', null);
 
       const f = this.build_(parse, regex.x);
@@ -107,7 +147,7 @@ class ThompsonConstructor {
       return last;
     }
     if (regex['?'] === '{a,b}') { // handle more elegently?
-      const afterParse = this. newStateId();
+      const afterParse = this.newStateId(getEndOfNode(regex));
 
       let last = s;
       for (let i = 0; i < regex.min; ++i)
@@ -134,13 +174,15 @@ class ThompsonConstructor {
     //   if (this.arrows[i] == null)
     //     this.arrows[i] = [];
 
-    return this.arrows;
+    return {
+      stateSourcePosition: this.stateMappings,
+      arrows: this.arrows
+    };
   }
 }
 
 import {escape} from '../../../util/escape';
 
-import {renderNode} from '../regexStrAST_renderer';
 export const renderArrow = (arrow) => {
   if (arrow['?'] === '&')
     return '';
