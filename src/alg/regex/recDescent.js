@@ -60,6 +60,9 @@ class RegexDescent {
           allowMinGTMax: false,
           limit: 255
         }
+      },
+      features: {
+        lookaround: false
       }
     }, config);
 
@@ -142,7 +145,7 @@ class RegexDescent {
     if (mapping.anchor != null)
       throw new Error('trying to anchor a sourcemap twice');
 
-    mapping.anchor = this.i-1;
+    mapping.anchor = this.i;
   }
   endSourceMapping(mapping) {
     if (mapping.range.end != null)
@@ -257,25 +260,46 @@ class RegexDescent {
 
       const res = [];
 
-      let capture = true;
+      let groupType = '()';
 
       const qMarkMapping = this.startSourceMapping();
-      if (this.mayConsume('?'))
+      if (this.mayConsume('?')) {
+        this.endSourceMapping(qMarkMapping);
+
         if (this.mayConsume(':'))
-          capture = false;
-        else {
-          this.endSourceMapping(qMarkMapping);
-          res.push(withSourceMapping({'?': 'char', x: '?'}, qMarkMapping));
+          groupType = '(?:)';
+        else if (this.config.features.lookaround) {
+          const lessThanMapping = this.startSourceMapping();
+          if (this.mayConsume('='))
+            groupType = '(?=)';
+          else if (this.mayConsume('!'))
+            groupType = '(?!)';
+          else if (this.mayConsume('<')){
+            this.endSourceMapping(lessThanMapping);
+
+            if (this.mayConsume('='))
+              groupType = '(?<=)';
+            else if (this.mayConsume('!'))
+              groupType = '(?<!)';
+
+            if (groupType === '()')
+              res.push(withSourceMapping({'?': 'char', x: '<'}), lessThanMapping);
+          }
         }
+
+        if (groupType === '()')
+          res.push(withSourceMapping({'?': 'char', x: '?'}, qMarkMapping));
+        else
+          this.setSourceMappingAnchor(atomMapping);
+      }
 
       res.push(this.parse_());
       this.mustConsume(')');
 
       this.endSourceMapping(atomMapping);
       return withSourceMapping({
-        '?': '()',
-        x: res,
-        capture
+        '?': groupType,
+        x: res
       }, atomMapping);
     }
 
@@ -626,6 +650,9 @@ export const parse = (regex) => {
     },
     charClass: {
       disableEscaping: false
+    },
+    features: {
+      lookaround: true
     }
   }).parse();
 };

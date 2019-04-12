@@ -37,11 +37,13 @@ const getEndOfNode = (node) => {
 class ThompsonConstructor {
   stateMappings;
   arrows;
+  lookaroundNFAs;
 
   constructor() {
     this.lastState = 1; // s, f, ...
-    this.stateMappings = [0, -1];
+    this.stateMappings = [];
     this.arrows = [];
+    this.lookaroundNFAs = new Map();
   }
 
   addArrow(s, f, type, x) {
@@ -101,6 +103,39 @@ class ThompsonConstructor {
       for (const x of regex.x)
         last = this.build_(last, x);
       return last;
+    }
+    if (['(?=)', '(?!)', '(?<=)', '(?<!)'].includes(regex['?'])) {
+      const anchor = getAnchorOfNode(regex);
+      const end = getEndOfNode(regex);
+      let lookaround = this.newStateId(anchor);
+
+      let x = [];
+      if (regex['?'].startsWith('(?<'))
+        x.push({
+          '?': '*',
+          x: {
+            '?': '.',
+            sourceMapInfo: {
+              range: {start: anchor, end: anchor+1}
+            }
+          },
+          sourceMapInfo: {
+            range: {start: anchor, end: anchor+1}
+          }
+        });
+      x.push(...regex.x);
+
+      this.lookaroundNFAs.set(lookaround, {
+        '?': regex['?'].slice(1, -1),
+        nfa: new ThompsonConstructor().build({
+          '?': '()', x,
+          sourceMapInfo: {
+            range: {start: anchor, end}
+          }
+        })
+      });
+      this.addArrow(s, lookaround, '&', null);
+      return lookaround;
     }
     if (regex['?'] === '*') { // todo: might be able to get rid of parse state
       const parse = this.newStateId(getStartOfNode(regex));
@@ -165,18 +200,18 @@ class ThompsonConstructor {
   }
 
   build(regex) {
+    this.stateMappings[0] = getStartOfNode(regex);
+    this.stateMappings[1] = getEndOfNode(regex);
+
     this.arrows[1] = []; // last state has no out arrows
 
     const lastState = this.build_(0, regex);
     this.addArrow(lastState, 1, '&', null);
 
-    // for (let i = 0; i < lastState; ++i)
-    //   if (this.arrows[i] == null)
-    //     this.arrows[i] = [];
-
     return {
       stateSourcePosition: this.stateMappings,
-      arrows: this.arrows
+      arrows: this.arrows,
+      lookaroundNFAs: this.lookaroundNFAs
     };
   }
 }
