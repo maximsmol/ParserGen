@@ -22,7 +22,7 @@ export class NFAEval {
       const x = q.pop();
       this.nextStates.add(x.f);
 
-      for (const a of this.nfa[x.f])
+      for (const a of this.nfa.arrows[x.f])
         if (a['?'] === '&')
           q.push(a);
     }
@@ -37,7 +37,7 @@ export class NFAEval {
 
   step(c) {
     for (const s of this.states) {
-      for (const a of this.nfa[s]) {
+      for (const a of this.nfa.arrows[s]) {
         if (a['?'] === '.') {
           this.takeArrow(a);
           continue;
@@ -75,7 +75,7 @@ export class NFAEval {
     res.push('digraph nfa {');
     for (const s of this.states)
       res.push(`  ${s} [style = filled, fillcolor = deepskyblue];`);
-    res = res.concat(nfaToGrafvizBody(this.nfa));
+    res = res.concat(nfaToGrafvizBody(this.nfa.arrows));
     res.push('}');
     return res.join('\n');
   }
