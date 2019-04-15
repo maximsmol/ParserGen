@@ -594,8 +594,7 @@ class RegexDescent {
 
     this.endSourceMapping(concatMapping);
     return withSourceMapping({
-      '?': '()',
-      x, capture: false
+      '?': '(?:)', x
     }, concatMapping);
   }
 
