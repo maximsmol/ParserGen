@@ -39,6 +39,9 @@ export class DictKeyedMap {
   has(dict) {
     return this.get(dict) != null;
   }
+  clear() {
+    this.data.clear();
+  }
 
   [Symbol.iterator]() {
     const self = this;

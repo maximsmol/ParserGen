@@ -6,15 +6,19 @@ import {nfaToGrafviz} from './alg/regex/nfa/nfaToGrafviz';
 import {logdeep} from './util/logdeep';
 import {escapeUnprintable} from './util/escapeUnprintable';
 
-const regex = '..(?<!a.)';
+// const regex = '(A|B+(?!B))(?!A)';
+const regex = '.*[A-Z][a-z]*((?![a-z])|(\'*[?+*]|\'+)(?![\'?+*]))';
 const parsed = parseRegex(regex);
 const nfa = buildNFA(parsed);
-logdeep(nfa);
-logdeep(nfa.lookaroundNFAs.get(4).nfa);
+// logdeep(nfa);
 const nfaEval = new NFAEval(nfa);
-const print = (nfaEval)=>{
-  for (const state of nfaEval.states) {
-    let pos = nfaEval.nfa.stateSourcePosition[state];
+
+
+const print = (nfaEval) => {
+  console.log(`  ${nfaEval.statusString()}. # L-Bs: ${nfaEval.lookbehindEvals.size}`);
+
+  for (const s of nfaEval.states) {
+    let pos = nfaEval.nfa.stateSourcePosition[s.nfaState];
     const str = regex;
 
     if (pos === -1)
@@ -23,17 +27,17 @@ const print = (nfaEval)=>{
     // have to re-escape or additional symbols added after escaping will mess up pos
     const prefix = escapeUnprintable(regex.substring(0, pos));
 
-    console.log(`  #${state}@${prefix.length}:`);
+    console.log(`  #${s.nfaState}@${prefix.length}. # L-As: ${Array.from(s.lookaheadEvals).length}`);
     console.log('  '+prefix+' '+str.substring(prefix.length));
     console.log('  '+' '.repeat(prefix.length)+'^');
   }
 };
 print(nfaEval);
-const str = 'abc';
+const str = 'BBA';
 for (let i = 0; i < str.length; ++i) {
   nfaEval.step(str[i]);
 
-  console.log(i);
+  console.log(i, str[i]);
   print(nfaEval);
 }
 

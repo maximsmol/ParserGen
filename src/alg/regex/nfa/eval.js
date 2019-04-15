@@ -1,61 +1,158 @@
 import {nfaToGrafvizBody} from './nfaToGrafviz';
+import {DictKeyedSet} from '../../../util/DictKeyedSet';
+
+// incomplete positive lookaheads and non-dead negative lookaheads
+const lookaheadNotResolved = x =>
+  x.negative ? !x.nfaEval.dead() : !x.nfaEval.done();
+
+const lookaheadFailed = x =>
+  x.negative ? x.nfaEval.done() : x.nfaEval.dead();
+
+const cloneLookaheadEvals = evals =>
+  evals
+    .filter(x => lookaheadNotResolved(x))
+    .map(x => ({
+      negative: x.negative,
+      nfaEval: x.nfaEval.clone()
+    }));
+
+
+// 1 = done
+// 0 = inconclusive
+// -1 = failed
+const lookaheadStatus = s => {
+  let done = true;
+  for (const lookahead of s.lookaheadEvals) {
+    if (lookahead.negative) {
+      if (lookahead.nfaEval.done())
+        return -1; // a done negative means we failed no matter what
+      if (!lookahead.nfaEval.dead())
+        done = false; // negative + !dead means we are not done at the very least
+    }
+    else {
+      if (lookahead.nfaEval.dead())
+        return -1; // a dead positive means we failed no matter what
+      if (!lookahead.nfaEval.done())
+        done = false; // positve + !done means we are not done at the very least
+    }
+  }
+  return done ? 1 : 0;
+};
+
+const lookaheadsDone = s => {
+  for (const lookahead of s.lookaheadEvals) {
+    if (lookahead.negative) {
+      // all negative lookaheads must have died
+      if (!lookahead.nfaEval.dead()) {
+        return false;
+      }
+    }
+    else if (!lookahead.nfaEval.done()) {
+      // all positive lookaheads must have succeeded
+      return false;
+    }
+  }
+  return true;
+};
 
 export class NFAEval {
   states;
   nextStates;
   nfa;
-  lookaroundEvals;
 
-  constructor(nfa) {
-    this.states = new Set();
-    this.nextStates = new Set();
+  lookbehindEvals;
+  lookaheadNFAs;
+
+  constructor(nfa, doNotInitDynamicState) {
+    const keyOrder = ['nfaState', 'lookaheadEvals'];
+    this.states = new DictKeyedSet(keyOrder);
+    this.nextStates = new DictKeyedSet(keyOrder);
     this.nfa = nfa;
 
-    this.lookaroundEvals = new Map();
+    this.lookbehindEvals = new Map();
+    this.lookaheadNFAs = new Map();
     for (const [s, laNFA] of nfa.lookaroundNFAs) {
-      let lookbehind = false;
       let negative = false;
-      if (laNFA['?'].startsWith('?<'))
-        lookbehind = true;
       if (laNFA['?'].endsWith('!'))
         negative = true;
 
-      this.lookaroundEvals.set(s, {
-        lookbehind, negative,
+      if (!laNFA['?'].startsWith('?<')) {
+        this.lookaheadNFAs.set(s, {
+          negative,
+          nfa: laNFA.nfa
+        });
+        continue;
+      }
+
+      if (doNotInitDynamicState === true)
+        continue;
+
+      this.lookbehindEvals.set(s, {
+        negative,
         nfaEval: new NFAEval(laNFA.nfa)
       });
     }
 
-    this.takeArrow({'?': '&', f: 0, x: null});
+    if (doNotInitDynamicState === true)
+      return;
+    this.takeArrow(
+      {
+        nfaState: -1,
+        lookaheadEvals: []
+      },
+      {'?': '&', f: 0, x: null}
+    );
     this.swapStates();
+  }
+  clone() {
+    const res = new NFAEval(this.nfa, true);
+
+    for (const s of this.states)
+      res.states.add({
+        nfaState: s.nfaState,
+        lookaheadEvals: cloneLookaheadEvals(s.lookaheadEvals)
+      });
+    for (const [s, e] of this.lookbehindEvals)
+      res.lookbehindEvals.set(s, e.clone());
+
+    return res;
   }
 
   done() {
-    return this.states.has(1);
+    for (const s of this.states) {
+      if (s.nfaState === 1 && lookaheadsDone(s)) {
+        return true;
+      }
+    }
+    return false;
   }
   dead() {
-    return this.states.size === 0;
+    return Array.from(this.states).length === 0;
   }
 
   restart() {
     this.states.clear();
     this.nextStates.clear();
 
-    for (const [,e] of this.lookaroundEvals)
+    for (const [,e] of this.lookbehindEvals)
       e.nfaEval.restart();
 
     this.takeArrow({'?': '&', f: 0, x: null});
   }
 
-  takeArrow(a0) {
+  takeArrow(s0, a0) {
     const q = [];
-    q.push(a0);
+    q.push({
+      state: s0,
+      arrow: a0
+    });
 
     while (q.length > 0) {
       const x = q.pop();
+      const arr = x.arrow;
 
-      const lookbehind = this.lookaroundEvals.get(x.f);
-      if (lookbehind != null && lookbehind.lookbehind) {
+      const lookbehind = this.lookbehindEvals.get(arr.f);
+      if (lookbehind != null) {
         // console.log(`found lookbehind for ${x.f}`);
         // console.log(Array.from(lookbehind.nfaEval.states));
         // todo: verify
@@ -71,11 +168,62 @@ export class NFAEval {
         }
       }
 
-      this.nextStates.add(x.f);
+      let killState = false;
+      for (const lookahead of x.state.lookaheadEvals) {
+        // console.log(`inherited lookahead for ${arr.f} that is ${lookahead.negative ? 'negative' : 'positive'} and ${lookahead.nfaEval.statusString()}`);
+        if (lookahead.negative) {
+          if (lookahead.nfaEval.done()) {
+            // console.log('negative lookahead success');
+            // negative lookahead succeeded
+            killState = true;
+            break;
+          }
+        }
+        else if (lookahead.nfaEval.dead()) {
+          // console.log('positive lookahead failure');
+          // positive lookahead died before reaching end state
+          killState = true;
+          break;
+        }
+      }
+      if (killState) {
+        throw new Error('I think this should really never happen as everything should be filtered out during stepping');
+        continue;
+      }
 
-      for (const a of this.nfa.arrows[x.f])
-        if (a['?'] === '&')
-          q.push(a);
+      const nextLookaheadEvals = cloneLookaheadEvals(x.state.lookaheadEvals);
+
+      const lookahead = this.lookaheadNFAs.get(arr.f);
+      if (lookahead != null) {
+        const nfaEval = new NFAEval(lookahead.nfa);
+        // console.log(`added lookahead for ${arr.f} that is ${lookahead.negative ? 'negative' : 'positive'} and ${nfaEval.statusString()}`);
+        nextLookaheadEvals.push({
+          negative: lookahead.negative,
+          nfaEval
+        });
+      }
+
+      const nextState = {
+        nfaState: arr.f,
+        lookaheadEvals: nextLookaheadEvals
+      };
+
+      let nonEpsilonArrowFound = false;
+      for (const a of this.nfa.arrows[arr.f]) {
+        if (a['?'] === '&') {
+          q.push({
+            state: nextState,
+            arrow: a
+          });
+        }
+        else {
+          nonEpsilonArrowFound = true;
+        }
+      }
+      // cull dummy states that only have epsilon transitions
+      // except for the final state, which has no transitions out of it obviously
+      if (arr.f === 1 || nonEpsilonArrowFound)
+        this.nextStates.add(nextState);
     }
   }
 
@@ -87,20 +235,49 @@ export class NFAEval {
   }
 
   step(c) {
-    for (const [s, e] of this.lookaroundEvals) {
-      if (e.lookbehind)
-        e.nfaEval.step(c);
-    }
+    for (const [,e] of this.lookbehindEvals)
+      e.nfaEval.step(c);
 
     for (const s of this.states) {
-      for (const a of this.nfa.arrows[s]) {
+      for (const lookahead of s.lookaheadEvals) {
+        if (!lookaheadNotResolved(lookahead))
+          throw new Error(`resolved lookahead was kept around somehow for state ${s.nfaState}. ${lookahead.negative}, ${lookahead.nfaEval.statusString()}`);
+        if (lookaheadFailed(lookahead))
+          throw new Error(`failed lookahead was kept around somehow for state ${s.nfaState}. ${lookahead.negative}, ${lookahead.nfaEval.statusString()}`);
+      }
+
+      // if it is a last state blocked by a L-A, keep it until L-A is resolved
+      let keepAround = false;
+      if (s.nfaState === 1 && s.lookaheadEvals.length !== 0) {
+        // console.log(`kept around a state with ${this.nfa.arrows[s.nfaState].length} arrows`);
+        keepAround = true;
+      }
+
+      let killState = false;
+      for (const lookahead of s.lookaheadEvals) {
+        lookahead.nfaEval.step(c);
+        // console.log(`stepped a lookahead which is now ${lookahead.nfaEval.statusString()} and ${lookaheadNotResolved(lookahead) ? 'not resolved' : 'resolved'}`);
+        if (lookaheadFailed(lookahead)) {
+          killState = true;
+          break;
+        }
+      }
+      if (killState) // a lookahead for this state has failed, throw it out
+        continue;
+      s.lookaheadEvals = s.lookaheadEvals.filter(lookaheadNotResolved);
+
+      if (keepAround)
+        // fixme: the DictKeyedSet of states copies the array or something so we have to only add here, after the L-A set has been modified
+        this.nextStates.add(s);
+
+      for (const a of this.nfa.arrows[s.nfaState]) {
         if (a['?'] === '.') {
-          this.takeArrow(a);
+          this.takeArrow(s, a);
           continue;
         }
         if (a['?'] === 'char') {
           if (c === a.x)
-            this.takeArrow(a);
+            this.takeArrow(s, a);
           continue;
         }
         if (a['?'] === 'class') {
@@ -108,13 +285,13 @@ export class NFAEval {
           for (const x of a.x) {
             if (x['?'] === 'char') {
               if (c === x.x) {
-                this.takeArrow(a);
+                this.takeArrow(s, a);
                 break;
               }
             }
             else if (x['?'] === 'a-b') {
               if (x.a.x.charCodeAt(0) <= code && code <= x.b.x.charCodeAt(0)) {
-                this.takeArrow(a);
+                this.takeArrow(s, a);
                 break;
               }
             }
@@ -129,10 +306,35 @@ export class NFAEval {
   toGrafviz() {
     let res = [];
     res.push('digraph nfa {');
-    for (const s of this.states)
-      res.push(`  ${s} [style = filled, fillcolor = deepskyblue];`);
+
+    const vis = new Set();
+    for (const s of this.states) {
+      if (vis.has(s.nfaState))
+        continue;
+      res.push(`  ${s.nfaState} [style = filled, fillcolor = deepskyblue];`);
+      vis.add(s.nfaState);
+    }
+
     res = res.concat(nfaToGrafvizBody(this.nfa.arrows));
     res.push('}');
     return res.join('\n');
+  }
+  statusString() {
+    if (this.dead())
+      return 'dead';
+
+    let haveFinalState = false;
+    for (const {nfaState} of this.states)
+      if (nfaState === 1) {
+        haveFinalState = true;
+        break;
+      }
+    if (haveFinalState) {
+      if (this.done())
+        return 'done';
+      return 'L-A blocked';
+    }
+
+    return 'inconclusive';
   }
 }

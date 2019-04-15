@@ -13,6 +13,9 @@ export class DictKeyedSet {
   has(v) {
     return this.data.has(v);
   }
+  clear() {
+    this.data.clear();
+  }
 
   *[Symbol.iterator]() {
     for (const entry of this.data)
