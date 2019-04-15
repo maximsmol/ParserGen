@@ -20,20 +20,29 @@ const cloneLookaheadEvals = evals =>
       nfaEval: x.nfaEval.clone()
     }));
 
+const cloneGroupData = groups => {
+  const res = new Map();
+  for (const [k, v] of groups)
+    res.set(k, v);
+  return res;
+};
+
 export let cloneN = 0;
 export class NFAEval {
   states;
   nextStates;
   nfa;
+  i;
 
   lookbehindEvals;
   lookaheadNFAs;
 
   constructor(nfa, doNotInitDynamicState) {
-    const keyOrder = ['nfaState', 'lookaheadEvals'];
+    const keyOrder = ['nfaState', 'groupData', 'lookaheadEvals'];
     this.states = new DictKeyedSet(keyOrder);
     this.nextStates = new DictKeyedSet(keyOrder);
     this.nfa = nfa;
+    this.i = 0;
 
     this.lookbehindEvals = new Map();
     this.lookaheadNFAs = new Map();
@@ -64,6 +73,7 @@ export class NFAEval {
     this.takeArrow({
       state: {
         nfaState: -1,
+        groupData: new Map(),
         lookaheadEvals: []
       },
       arrow: {'?': '&', f: 0, x: null},
@@ -74,10 +84,12 @@ export class NFAEval {
   clone() {
     ++cloneN;
     const res = new NFAEval(this.nfa, true);
+    res.i = this.i;
 
     for (const s of this.states)
       res.states.add({
         nfaState: s.nfaState,
+        groupData: cloneGroupData(s.groupData),
         lookaheadEvals: cloneLookaheadEvals(s.lookaheadEvals)
       });
     for (const [s, e] of this.lookbehindEvals)
@@ -98,6 +110,8 @@ export class NFAEval {
   }
 
   restart() {
+    this.i = 0;
+
     this.states.clear();
     this.nextStates.clear();
 
@@ -129,12 +143,17 @@ export class NFAEval {
           nfaEval: new NFAEval(lookahead.nfa)
         });
 
-      const nextState = x.canReuse ? x.state : {
-        nfaState: fState,
-        lookaheadEvals: nextLookaheadEvals
-      };
-      if (x.canReuse)
-        x.state.nfaState = fState;
+      const nextGroupData =
+        x.canReuse ? x.state.groupData : cloneGroupData(x.state.groupData);
+
+      const nextState = x.canReuse ? x.state : {};
+      nextState.nfaState = fState;
+      nextState.lookaheadEvals = nextLookaheadEvals;
+      nextState.groupData = nextGroupData;
+
+      const groupBoundary = this.nfa.groupBoundaries.get(x.state.nfaState);
+      if (groupBoundary != null)
+        nextState.groupData.set(groupBoundary, this.i);
 
       // cull dummy states that only have epsilon transitions
       // except for the final state
@@ -173,6 +192,7 @@ export class NFAEval {
   }
 
   step(c) {
+    ++this.i;
     for (const [,e] of this.lookbehindEvals)
       e.nfaEval.step(c);
 

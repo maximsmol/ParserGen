@@ -39,11 +39,17 @@ class ThompsonConstructor {
   arrows;
   lookaroundNFAs;
 
+  groupBoundaries;
+  groupId;
+
   constructor() {
     this.lastState = 1; // s, f, ...
     this.stateMappings = [];
     this.arrows = [];
     this.lookaroundNFAs = new Map();
+
+    this.groupBoundaries = new Map();
+    this.groupId = 1;
   }
 
   addArrow(s, f, type, x) {
@@ -98,11 +104,27 @@ class ThompsonConstructor {
 
       return f;
     }
-    if (regex['?'] === '()') { // todo: handle captures
+    if (regex['?'] === '(?:)') {
       let last = s;
       for (const x of regex.x)
         last = this.build_(last, x);
       return last;
+    }
+    if (regex['?'] === '()') {
+      const entrance = this.newStateId(getStartOfNode(regex));
+      const exit = this.newStateId(getEndOfNode(regex));
+
+      this.groupBoundaries.set(entrance, this.groupId);
+      this.groupBoundaries.set(exit, -this.groupId);
+      ++this.groupId;
+
+      this.addArrow(s, entrance, '&', null);
+      let last = entrance;
+      for (const x of regex.x)
+        last = this.build_(last, x);
+      this.addArrow(last, exit, '&', null);
+
+      return exit;
     }
     if (['(?=)', '(?!)', '(?<=)', '(?<!)'].includes(regex['?'])) {
       const anchor = getAnchorOfNode(regex);
@@ -211,7 +233,9 @@ class ThompsonConstructor {
     return {
       stateSourcePosition: this.stateMappings,
       arrows: this.arrows,
-      lookaroundNFAs: this.lookaroundNFAs
+      lookaroundNFAs: this.lookaroundNFAs,
+      groupBoundaries: this.groupBoundaries,
+      lastGroupId: this.groupId
     };
   }
 }
