@@ -1,7 +1,7 @@
 import {parse as parseRegex} from './alg/regex/recDescent';
 import {printASTTree as printRegexASTTree} from './alg/regex/regexStrAST_renderer';
 import {buildNFA} from './alg/regex/nfa/thompson';
-import {NFAEval} from './alg/regex/nfa/eval';
+import {NFAEval, cloneN} from './alg/regex/nfa/eval';
 import {nfaToGrafviz} from './alg/regex/nfa/nfaToGrafviz';
 import {logdeep} from './util/logdeep';
 import {escapeUnprintable} from './util/escapeUnprintable';
@@ -25,7 +25,8 @@ import {escapeUnprintable} from './util/escapeUnprintable';
 
 const tokenMap = {
   '.*[ \n\r\t\v]': 'space',
-  '.*[A-Z][a-z]*(?![a-z])\'*(?!\')[+*?]?(?![+*?])': 'id',
+  '.*(?<![A-Za-z])[A-Z][A-Za-z0-9]*(?![A-Za-z0-9])\'*(?!\')[+*?]?(?![+*?])': 'id',
+  '.*(?<![A-Za-z])[a-z][A-Za-z0-9]*(?![A-Za-z0-9])': 'token',
   '.*.': 'char'
 };
 const regexes = Object.keys(tokenMap);
@@ -64,4 +65,6 @@ import {promises as fs} from 'fs';
 
     // printStates();
   }
+
+  console.log(cloneN);
 })();
