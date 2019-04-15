@@ -1,43 +1,21 @@
 import {nfaToGrafvizBody} from './nfaToGrafviz';
 import {DictKeyedSet} from '../../../util/DictKeyedSet';
+import {escapeUnprintable} from '../../../util/escapeUnprintable';
 
-// incomplete positive lookaheads and non-dead negative lookaheads
-const lookaheadNotResolved = x =>
-  x.negative ? !x.nfaEval.dead() : !x.nfaEval.done();
-
+const lookaheadResolved = x =>
+  x.nfaEval.done() || x.nfaEval.dead();
 const lookaheadFailed = x =>
   x.negative ? x.nfaEval.done() : x.nfaEval.dead();
+const lookaheadSucceeded = x =>
+  x.negative ? x.nfaEval.dead() : x.nfaEval.done();
 
 const cloneLookaheadEvals = evals =>
   evals
-    .filter(x => lookaheadNotResolved(x))
+    .filter(x => !lookaheadResolved(x))
     .map(x => ({
       negative: x.negative,
       nfaEval: x.nfaEval.clone()
     }));
-
-
-// 1 = done
-// 0 = inconclusive
-// -1 = failed
-const lookaheadStatus = s => {
-  let done = true;
-  for (const lookahead of s.lookaheadEvals) {
-    if (lookahead.negative) {
-      if (lookahead.nfaEval.done())
-        return -1; // a done negative means we failed no matter what
-      if (!lookahead.nfaEval.dead())
-        done = false; // negative + !dead means we are not done at the very least
-    }
-    else {
-      if (lookahead.nfaEval.dead())
-        return -1; // a dead positive means we failed no matter what
-      if (!lookahead.nfaEval.done())
-        done = false; // positve + !done means we are not done at the very least
-    }
-  }
-  return done ? 1 : 0;
-};
 
 const lookaheadsDone = s => {
   for (const lookahead of s.lookaheadEvals) {
@@ -171,24 +149,14 @@ export class NFAEval {
       let killState = false;
       for (const lookahead of x.state.lookaheadEvals) {
         // console.log(`inherited lookahead for ${arr.f} that is ${lookahead.negative ? 'negative' : 'positive'} and ${lookahead.nfaEval.statusString()}`);
-        if (lookahead.negative) {
-          if (lookahead.nfaEval.done()) {
-            // console.log('negative lookahead success');
-            // negative lookahead succeeded
-            killState = true;
-            break;
-          }
-        }
-        else if (lookahead.nfaEval.dead()) {
-          // console.log('positive lookahead failure');
-          // positive lookahead died before reaching end state
+        if (lookaheadFailed(lookahead)) {
           killState = true;
           break;
         }
       }
       if (killState) {
         throw new Error('I think this should really never happen as everything should be filtered out during stepping');
-        continue;
+        // continue;
       }
 
       const nextLookaheadEvals = cloneLookaheadEvals(x.state.lookaheadEvals);
@@ -239,12 +207,9 @@ export class NFAEval {
       e.nfaEval.step(c);
 
     for (const s of this.states) {
-      for (const lookahead of s.lookaheadEvals) {
-        if (!lookaheadNotResolved(lookahead))
+      for (const lookahead of s.lookaheadEvals)
+        if (lookaheadResolved(lookahead))
           throw new Error(`resolved lookahead was kept around somehow for state ${s.nfaState}. ${lookahead.negative}, ${lookahead.nfaEval.statusString()}`);
-        if (lookaheadFailed(lookahead))
-          throw new Error(`failed lookahead was kept around somehow for state ${s.nfaState}. ${lookahead.negative}, ${lookahead.nfaEval.statusString()}`);
-      }
 
       // if it is a last state blocked by a L-A, keep it until L-A is resolved
       let keepAround = false;
@@ -256,7 +221,7 @@ export class NFAEval {
       let killState = false;
       for (const lookahead of s.lookaheadEvals) {
         lookahead.nfaEval.step(c);
-        // console.log(`stepped a lookahead which is now ${lookahead.nfaEval.statusString()} and ${lookaheadNotResolved(lookahead) ? 'not resolved' : 'resolved'}`);
+        // console.log(`stepped a lookahead which is now ${lookahead.nfaEval.statusString()} and ${lookaheadResolved(lookahead) ? 'resolved' : 'not resolved'}`);
         if (lookaheadFailed(lookahead)) {
           killState = true;
           break;
@@ -264,7 +229,7 @@ export class NFAEval {
       }
       if (killState) // a lookahead for this state has failed, throw it out
         continue;
-      s.lookaheadEvals = s.lookaheadEvals.filter(lookaheadNotResolved);
+      s.lookaheadEvals = s.lookaheadEvals.filter(x => !lookaheadResolved(x));
 
       if (keepAround)
         // fixme: the DictKeyedSet of states copies the array or something so we have to only add here, after the L-A set has been modified
@@ -336,5 +301,34 @@ export class NFAEval {
     }
 
     return 'inconclusive';
+  }
+  prettyPrint(source, indentStr) {
+    if (indentStr === undefined)
+      indentStr = '';
+
+    console.log(`${indentStr}${this.statusString()}. # L-B: ${this.lookbehindEvals.size}`);
+    for (const lookbehind of this.lookbehindEvals) {
+      console.log(`${indentStr}${lookbehind.negative ? '?<!' : '?<='}`);
+      lookbehind.nfaEval.prettyPrint(source, indentStr+'  ');
+    }
+
+    for (const s of this.states) {
+      let pos = this.nfa.stateSourcePosition[s.nfaState];
+
+      if (pos === -1)
+        pos = source.length;
+
+      // have to re-escape or additional symbols added after escaping will mess up pos
+      const prefix = escapeUnprintable(source.substring(0, pos));
+
+      console.log(`${indentStr}#${s.nfaState}@${prefix.length}. # L-A: ${Array.from(s.lookaheadEvals).length}.`);
+      for (const lookahead of s.lookaheadEvals) {
+        console.log(`${indentStr}${lookahead.negative ? '?!' : '?='}`);
+        lookahead.nfaEval.prettyPrint(source, indentStr+'  ');
+      }
+
+      console.log(indentStr+prefix+' '+source.substring(prefix.length));
+      console.log(indentStr+' '.repeat(prefix.length)+'^');
+    }
   }
 }
