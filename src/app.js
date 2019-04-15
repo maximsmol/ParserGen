@@ -24,10 +24,10 @@ import {escapeUnprintable} from './util/escapeUnprintable';
 
 
 const tokenMap = {
-  '.*[ \n\r\t\v]': 'space',
-  '.*(?<![A-Za-z])[A-Z][A-Za-z0-9]*(?![A-Za-z0-9])\'*(?!\')[+*?]?(?![+*?])': 'id',
-  '.*(?<![A-Za-z])[a-z][A-Za-z0-9]*(?![A-Za-z0-9])': 'token',
-  '.*.': 'char'
+  '.*([ \n\r\t\v])': 'space',
+  '.*((?<![A-Za-z])[A-Z][A-Za-z0-9]*(?![A-Za-z0-9])\'*(?!\')[+*?]?(?![+*?]))': 'id',
+  '.*((?<![A-Za-z])[a-z][A-Za-z0-9]*(?![A-Za-z0-9]))': 'token',
+  '.*(.)': 'char'
 };
 const regexes = Object.keys(tokenMap);
 const tokenNames = Object.values(tokenMap);
@@ -61,9 +61,21 @@ import {promises as fs} from 'fs';
     for (let j = 0; j < nfaEvals.length; ++j) {
       nfaEvals[j].step(c);
 
-      if (nfaEvals[j].done()) {
-        console.log(`found ${tokens[j]} at ${i}`);
-        ++numTokens[j];
+      for (const s of nfaEvals[j].states) {
+        if (s.nfaState === 1 && s.lookaheadEvals.length === 0) {
+          console.log(`${i}: found ${tokens[j]}`);
+          for (let i = 1; i <= nfas[j].lastGroupId; ++i) {
+            const groupStart = s.groupData.get(i);
+            if (groupStart == null)
+              continue;
+            const groupEnd = s.groupData.get(-i);
+
+            const groupCap = str.substring(groupStart, groupEnd);
+            console.log(`  ${groupStart}-${groupEnd}: ${groupCap}`);
+          }
+
+          ++numTokens[j];
+        }
       }
     }
 
