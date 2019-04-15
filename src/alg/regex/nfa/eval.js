@@ -94,7 +94,7 @@ export class NFAEval {
     return false;
   }
   dead() {
-    return Array.from(this.states).length === 0;
+    return this.states.size === 0;
   }
 
   restart() {
@@ -304,7 +304,7 @@ export class NFAEval {
       // have to re-escape or additional symbols added after escaping will mess up pos
       const prefix = escapeUnprintable(source.substring(0, pos));
 
-      console.log(`${indentStr}#${s.nfaState}@${prefix.length}. # L-A: ${Array.from(s.lookaheadEvals).length}.`);
+      console.log(`${indentStr}#${s.nfaState}@${prefix.length}. # L-A: ${s.lookaheadEvals.size}.`);
       for (const lookahead of s.lookaheadEvals) {
         console.log(`${indentStr}${lookahead.negative ? '?!' : '?='}`);
         lookahead.nfaEval.prettyPrint(source, indentStr+'  ');

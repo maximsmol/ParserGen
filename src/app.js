@@ -34,10 +34,12 @@ const tokenNames = Object.values(tokenMap);
 
 const nfas = [];
 const tokens = [];
+const numTokens = [];
 
 for (const [regex, tok] of Object.entries(tokenMap)) {
   nfas.push(buildNFA(parseRegex(regex)));
   tokens.push(tok);
+  numTokens.push(0);
 }
 
 const nfaEvals = [];
@@ -59,12 +61,15 @@ import {promises as fs} from 'fs';
     for (let j = 0; j < nfaEvals.length; ++j) {
       nfaEvals[j].step(c);
 
-      if (nfaEvals[j].done())
+      if (nfaEvals[j].done()) {
         console.log(`found ${tokens[j]} at ${i}`);
+        ++numTokens[j];
+      }
     }
 
     // printStates();
   }
 
   console.log(cloneN);
+  console.log(numTokens);
 })();

@@ -1,9 +1,14 @@
 import util from 'util';
 
 export class DictKeyedMap {
+  data;
+  keyOrder;
+  size;
+
   constructor(keyOrder) {
     this.data = new Map();
     this.keyOrder = keyOrder;
+    this.size = 0;
   }
 
   set(dict, v) {
@@ -20,7 +25,10 @@ export class DictKeyedMap {
       m = m1;
     }
 
-    m.set(dict[this.keyOrder[this.keyOrder.length-1]], v);
+    const key = dict[this.keyOrder[this.keyOrder.length-1]];
+    if (!m.has(key))
+      ++this.size;
+    m.set(key, v);
   }
   get(dict) {
     let m = this.data;
@@ -41,7 +49,30 @@ export class DictKeyedMap {
   }
   clear() {
     this.data.clear();
+    this.size = 0;
   }
+  /*recomputeSize() {
+    let res = 0;
+
+    let q = [];
+    q.push({map: this.data, depth: 0});
+    while (q.length !== 0) {
+      const step = q.pop();
+
+      if (step.depth === this.keyOrder.length-1) {
+        res += step.map.size;
+        continue;
+      }
+
+      for (let [,subMap] of step.map)
+        q.push({
+          map: subMap,
+          depth: step.depth+1
+        });
+    }
+
+    return res;
+  }*/
 
   [Symbol.iterator]() {
     const self = this;
