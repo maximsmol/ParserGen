@@ -2,37 +2,25 @@ import {nfaToGrafvizBody} from './nfaToGrafviz';
 import {DictKeyedSet} from '../../../util/DictKeyedSet';
 import {escapeUnprintable} from '../../../util/escapeUnprintable';
 
-const lookaheadResolved = x =>
+const assertLookbehind = x =>
+  x.negative ? !x.nfaEval.done() : x.nfaEval.done();
+
+const lookaroundResolved = x =>
   x.nfaEval.done() || x.nfaEval.dead();
-const lookaheadFailed = x =>
+const lookaroundFailed = x =>
   x.negative ? x.nfaEval.done() : x.nfaEval.dead();
-const lookaheadSucceeded = x =>
+const lookaroundSucceeded = x =>
   x.negative ? x.nfaEval.dead() : x.nfaEval.done();
 
 const cloneLookaheadEvals = evals =>
   evals
-    .filter(x => !lookaheadResolved(x))
+    .filter(x => !lookaroundResolved(x))
     .map(x => ({
       negative: x.negative,
       nfaEval: x.nfaEval.clone()
     }));
 
-const lookaheadsDone = s => {
-  for (const lookahead of s.lookaheadEvals) {
-    if (lookahead.negative) {
-      // all negative lookaheads must have died
-      if (!lookahead.nfaEval.dead()) {
-        return false;
-      }
-    }
-    else if (!lookahead.nfaEval.done()) {
-      // all positive lookaheads must have succeeded
-      return false;
-    }
-  }
-  return true;
-};
-
+export let cloneN = 0;
 export class NFAEval {
   states;
   nextStates;
@@ -73,16 +61,18 @@ export class NFAEval {
 
     if (doNotInitDynamicState === true)
       return;
-    this.takeArrow(
-      {
+    this.takeArrow({
+      state: {
         nfaState: -1,
         lookaheadEvals: []
       },
-      {'?': '&', f: 0, x: null}
-    );
+      arrow: {'?': '&', f: 0, x: null},
+      canReuse: true
+    });
     this.swapStates();
   }
   clone() {
+    ++cloneN;
     const res = new NFAEval(this.nfa, true);
 
     for (const s of this.states)
@@ -98,9 +88,8 @@ export class NFAEval {
 
   done() {
     for (const s of this.states) {
-      if (s.nfaState === 1 && lookaheadsDone(s)) {
+      if (s.nfaState === 1 && s.lookaheadEvals.length === 0)
         return true;
-      }
     }
     return false;
   }
@@ -118,79 +107,60 @@ export class NFAEval {
     this.takeArrow({'?': '&', f: 0, x: null});
   }
 
-  takeArrow(s0, a0) {
+  takeArrow(desc) {
     const q = [];
-    q.push({
-      state: s0,
-      arrow: a0
-    });
+    q.push(desc);
 
     while (q.length > 0) {
       const x = q.pop();
-      const arr = x.arrow;
+      const fState = x.arrow.f;
 
-      const lookbehind = this.lookbehindEvals.get(arr.f);
-      if (lookbehind != null) {
-        // console.log(`found lookbehind for ${x.f}`);
-        // console.log(Array.from(lookbehind.nfaEval.states));
-        // todo: verify
-        if (lookbehind.negative) {
-          if (lookbehind.nfaEval.done()) {
-            // console.log('negative lookbehind success');
-            continue; // skip this state, negative lookbehind was found
-          }
-        }
-        else if (!lookbehind.nfaEval.done()) {
-          // console.log('positive lookbehind fail');
-          continue; // skip this state, lookbehind was not found
-        }
-      }
+      const lookbehind = this.lookbehindEvals.get(fState);
+      if (lookbehind != null && !assertLookbehind(lookbehind))
+        continue;
 
-      let killState = false;
-      for (const lookahead of x.state.lookaheadEvals) {
-        // console.log(`inherited lookahead for ${arr.f} that is ${lookahead.negative ? 'negative' : 'positive'} and ${lookahead.nfaEval.statusString()}`);
-        if (lookaheadFailed(lookahead)) {
-          killState = true;
-          break;
-        }
-      }
-      if (killState) {
-        throw new Error('I think this should really never happen as everything should be filtered out during stepping');
-        // continue;
-      }
+      const nextLookaheadEvals =
+        x.canReuse ? x.state.lookaheadEvals : cloneLookaheadEvals(x.state.lookaheadEvals);
 
-      const nextLookaheadEvals = cloneLookaheadEvals(x.state.lookaheadEvals);
-
-      const lookahead = this.lookaheadNFAs.get(arr.f);
-      if (lookahead != null) {
-        const nfaEval = new NFAEval(lookahead.nfa);
-        // console.log(`added lookahead for ${arr.f} that is ${lookahead.negative ? 'negative' : 'positive'} and ${nfaEval.statusString()}`);
+      const lookahead = this.lookaheadNFAs.get(fState);
+      if (lookahead != null)
         nextLookaheadEvals.push({
           negative: lookahead.negative,
-          nfaEval
+          nfaEval: new NFAEval(lookahead.nfa)
         });
-      }
 
-      const nextState = {
-        nfaState: arr.f,
+      const nextState = x.canReuse ? x.state : {
+        nfaState: fState,
         lookaheadEvals: nextLookaheadEvals
       };
+      if (x.canReuse)
+        x.state.nfaState = fState;
 
-      let nonEpsilonArrowFound = false;
-      for (const a of this.nfa.arrows[arr.f]) {
+      // cull dummy states that only have epsilon transitions
+      // except for the final state
+      let mustKeepState = fState === 1;
+
+      const arrows = this.nfa.arrows[fState];
+      const hasSingleArrow = arrows.length === 1;
+      for (let i = 0; i < arrows.length; ++i) {
+        const a = arrows[i];
+
+        // ATTENTION
+        // be super careful here, as arrows are actually popped in reverse order
+        const canReuse = hasSingleArrow || i === 0;
         if (a['?'] === '&') {
           q.push({
             state: nextState,
-            arrow: a
+            arrow: a,
+            canReuse
           });
         }
         else {
-          nonEpsilonArrowFound = true;
+          mustKeepState = true;
         }
       }
-      // cull dummy states that only have epsilon transitions
-      // except for the final state, which has no transitions out of it obviously
-      if (arr.f === 1 || nonEpsilonArrowFound)
+
+      if (mustKeepState)
         this.nextStates.add(nextState);
     }
   }
@@ -207,42 +177,52 @@ export class NFAEval {
       e.nfaEval.step(c);
 
     for (const s of this.states) {
-      for (const lookahead of s.lookaheadEvals)
-        if (lookaheadResolved(lookahead))
-          throw new Error(`resolved lookahead was kept around somehow for state ${s.nfaState}. ${lookahead.negative}, ${lookahead.nfaEval.statusString()}`);
-
       // if it is a last state blocked by a L-A, keep it until L-A is resolved
       let keepAround = false;
-      if (s.nfaState === 1 && s.lookaheadEvals.length !== 0) {
-        // console.log(`kept around a state with ${this.nfa.arrows[s.nfaState].length} arrows`);
+      if (s.nfaState === 1 && s.lookaheadEvals.length !== 0)
         keepAround = true;
-      }
 
       let killState = false;
       for (const lookahead of s.lookaheadEvals) {
+        // sanity check
+        if (lookaroundResolved(lookahead))
+          throw new Error(`resolved lookahead was kept around somehow for state ${s.nfaState}. negative: ${lookahead.negative}, ${lookahead.nfaEval.statusString()}`);
+
         lookahead.nfaEval.step(c);
-        // console.log(`stepped a lookahead which is now ${lookahead.nfaEval.statusString()} and ${lookaheadResolved(lookahead) ? 'resolved' : 'not resolved'}`);
-        if (lookaheadFailed(lookahead)) {
+        if (lookaroundFailed(lookahead)) {
           killState = true;
           break;
         }
       }
       if (killState) // a lookahead for this state has failed, throw it out
         continue;
-      s.lookaheadEvals = s.lookaheadEvals.filter(x => !lookaheadResolved(x));
+
+      s.lookaheadEvals = s.lookaheadEvals.filter(x => !lookaroundResolved(x));
+
 
       if (keepAround)
         // fixme: the DictKeyedSet of states copies the array or something so we have to only add here, after the L-A set has been modified
         this.nextStates.add(s);
 
-      for (const a of this.nfa.arrows[s.nfaState]) {
+
+      const arrows = this.nfa.arrows[s.nfaState];
+      const hasSingleArrow = arrows.length === 1;
+      for (let i = 0; i < arrows.length; ++i) {
+        const a = arrows[i];
+        const canReuse = hasSingleArrow || i === arrows.length-1;
+        const arrowDescriptor = {
+          state: s,
+          arrow: a,
+          canReuse
+        };
+
         if (a['?'] === '.') {
-          this.takeArrow(s, a);
+          this.takeArrow(arrowDescriptor);
           continue;
         }
         if (a['?'] === 'char') {
           if (c === a.x)
-            this.takeArrow(s, a);
+            this.takeArrow(arrowDescriptor);
           continue;
         }
         if (a['?'] === 'class') {
@@ -250,19 +230,22 @@ export class NFAEval {
           for (const x of a.x) {
             if (x['?'] === 'char') {
               if (c === x.x) {
-                this.takeArrow(s, a);
+                this.takeArrow(arrowDescriptor);
                 break;
               }
             }
             else if (x['?'] === 'a-b') {
               if (x.a.x.charCodeAt(0) <= code && code <= x.b.x.charCodeAt(0)) {
-                this.takeArrow(s, a);
+                this.takeArrow(arrowDescriptor);
                 break;
               }
             }
           }
           continue;
         }
+        if (a['?'] === '&')
+          continue;
+        throw new Error(`Unknown arrow type ${a['?']}`);
       }
     }
     this.swapStates();
