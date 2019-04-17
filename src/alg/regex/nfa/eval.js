@@ -98,6 +98,15 @@ export class NFAEval {
     return res;
   }
 
+  finishedParseStates() {
+    const res = [];
+    for (const s of this.states) {
+      if (s.nfaState === 1 && s.lookaheadEvals.length === 0)
+        res.push(s);
+    }
+
+    return res;
+  }
   done() {
     for (const s of this.states) {
       if (s.nfaState === 1 && s.lookaheadEvals.length === 0)
