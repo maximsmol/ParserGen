@@ -61,7 +61,7 @@ export const firstSets = g => {
 
         const sub = rule.sub[subI];
 
-        if (sub['?'] !== 'ref') { // sub is t – non-skipable
+        if (sub['?'] !== 'id') { // sub is t – non-skipable
           addFiW(fiW, sub, null, 't');
 
           break;

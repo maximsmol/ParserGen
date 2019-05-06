@@ -54,7 +54,7 @@ export const followSet = (g, fiAs) => {
       for (let subI = 0; subI < rule.sub.length; ++subI) {
         const sub = rule.sub[subI];
 
-        if (sub['?'] !== 'ref') // don't collect fo of ts
+        if (sub['?'] !== 'id') // don't collect fo of ts
           continue;
         // sub is nt
 
@@ -80,7 +80,7 @@ export const followSet = (g, fiAs) => {
 
           const subX = rule.sub[x];
 
-          if (subX['?'] !== 'ref') { // subX is t – non-skipable
+          if (subX['?'] !== 'id') { // subX is t – non-skipable
             addFoA(foA, subX, null, 't');
             break;
           }

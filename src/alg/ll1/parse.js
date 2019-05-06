@@ -18,17 +18,21 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
     col: 1, line: 1
   };
   while (i < toks.length) {
-    const [t, str] = toks[i];
-    if (t['?'] === 'internal') {
-      if (t.x === 'lf') {
+    const newStyleTok = toks[i];
+    const str = newStyleTok.match.str;
+    const t = newStyleTok; // todo: transition properly
+
+    if (t['?'] === 'space') {
+      if (str === '\n') {
         pos.col = 1;
         ++pos.line;
       }
-      else if (t.x === 'space')
+      else { // todo: don't ignore spaces?
         pos.col += str.length;
-      ++i;
 
-      continue;
+        ++i;
+        continue;
+      }
     }
 
     if (parseStack.length === 0)
@@ -37,7 +41,7 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
     const node = parseStack.pop();
     const x = node.x;
 
-    if (x['?'] === 'ref') {
+    if (x['?'] === 'id') {
       const nt = x.x;
       const row = table.get(nt);
 
@@ -46,6 +50,9 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
 
       const ruleI = row.get(t);
       if (ruleI == null) {
+        logdeep(row);
+        logdeep(t);
+
         const errorReport = `${pos.line}:${pos.col}: Unexpected token ${renderSubPart(t)} <-| ${escapeString(str)}`;
         console.log(errorReport);
 
@@ -83,7 +90,7 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
           let res = [];
           for (const c of node.children) {
             const x = c.x;
-            if (x['?'] === 'ref')
+            if (x['?'] === 'id')
               res.push(parseTreeNodeSource(c));
             else
               res.push(c.str.replace('\n', '\\n').replace('\r', '\\r'));
@@ -95,7 +102,7 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
           if (node === n) // the parsing error
             return `ERROR: ${x.x}`;
 
-          if (x['?'] !== 'ref')
+          if (x['?'] !== 'id')
             return renderSubPart(x);
 
           return `${x.x} <-| ${parseTreeNodeSource(n)}`;
@@ -125,7 +132,7 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
       const rule = g.rules[ruleI];
 
       if (trace)
-        console.log(`Matched ${renderSubPart(t)} <-| '${escapeString(str)}' -- ${ruleI}: ${ruleToStr(rule)}`);
+        console.log(`${pos.line}:${pos.col}: Matched ${renderSubPart(t)} <-| '${escapeString(str)}' -- ${ruleI}: ${ruleToStr(rule)}`);
       for (let j = rule.sub.length-1; j >= 0; --j) {
         const child = {x: rule.sub[j], children: [], parent: node};
         node.children.push(child);
@@ -133,7 +140,7 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
       }
       node.children.reverse();
     }
-    else if (x['?'] === 'tok' || x['?'] === 'lit') {
+    else if (x['?'] === 'token' || x['?'] === 'char' || x['?'] === 'space') {
       if (!partEq(t, x))
         throw new Error(`Parsing error.\nT=${renderSubPart(t)} <-| ${escapeString(str)}\nExpected: ${renderSubPart(x)}\n${inspectdeep(parseStack)}`);
       if (trace)
