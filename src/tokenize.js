@@ -1,89 +1,89 @@
-import {Transform} from 'stream';
+import {logdeep} from './util/logdeep';
+import {NFAEvalManager} from './alg/regex/nfa/manager';
 
-import {tagPart, tok, lit, special, partEq} from './alg/ll1/grammarTools';
+const tokenMap = {
+  '[ \n\r\t\v]': 'space',
+  '(?<![A-Za-z])[A-Z][A-Za-z0-9]*(?![A-Za-z0-9])\'*(?!\')[+*?]?(?![+*?])': 'id',
+  '(?<![A-Za-z])[a-z][A-Za-z0-9]*(?![A-Za-z0-9])': 'token'/*,
+  '.': 'char'*/
+};
 
-import escapeStringRegexp from 'escape-string-regexp';
-import escapeString from 'js-string-escape';
+const regexManagers = [];
+const tokenNames = [];
+export const numTokens = [];
 
-const internal = x => tagPart('internal', x);
+for (const [rawRegex, tok] of Object.entries(tokenMap)) {
+  const regex = `.*(${rawRegex})`;
+  regexManagers.push(new NFAEvalManager(regex));
+  tokenNames.push(tok);
+  numTokens.push(0);
+}
 
 export const tokenize = (str) => {
-  const toks = [];
+  for (const m of regexManagers)
+    m.setStr(str);
 
-  const lits = ['\n', '-', '>', '|', '\'', '\\'];
-  for (const l of lits)
-    toks.push([new RegExp('^'+escapeStringRegexp(l)), lit(l)]);
-
-  toks.push([/^[&\w][\w']*/, tok('id')]);
-
-  toks.push([/^\s+/, internal('space')]);
-  toks.push([/^./, special('any')]);
   const res = [];
+  let column = 0;
+  let line = 1;
 
-  const escapeMap = {
-    'n': '\n',
-    '\\': '\\',
-    '\'': '\''
-  };
+  const tokMatches = new Map();
+  for (let i = 0; i < str.length; ++i) {
+    tokMatches.delete(i-1);
 
-  let inStr = false;
-  let escape = false;
-  let inWinLF = false;
-  while (str.length > 0) {
-    if (escape) {
-      res.push([special('any'), escapeMap[str[0]]]);
-      str = str.slice(1);
-      escape = false;
-      continue;
+    const c = str[i];
+
+    if (c === '\n') {
+      ++line;
+      column = 1;
     }
+    else
+      ++column;
 
-    if (str[0] === '\n') {
-      if (str[1] === '\r') {
-        inWinLF = true;
-        res.push([internal('lf'), '\n\r']);
-      }
-      else
-        res.push([internal('lf'), '\n']);
-    }
-    else if (str[0] === '\r') {
-      if (inWinLF)
-        inWinLF = false;
-      else
-        res.push([internal('lf'), '\r']);
-    }
+    let nonTrivialStateFound = false;
+    for (let j = 0; j < regexManagers.length; ++j) {
+      const tok = tokenNames[j];
 
-    if (inStr) {
-      const c = str[0];
-      if (c === '\'') {
-        res.push([lit('\''), c]);
-        inStr = false;
-      }
-      else if (c === '\\') {
-        res.push([lit('\\'), c]);
-        escape = true;
-      }
-      else
-        res.push([special('any'), c]);
-      str = str.slice(1);
-      continue;
-    }
+      const m = regexManagers[j];
+      const nfaEval = m.nfaEval;
+      nfaEval.step(c);
+      nonTrivialStateFound = nonTrivialStateFound || nfaEval.hasNontrivialParseState();
 
-    for (const [reg, tok] of toks) {
-      const match = reg.exec(str);
-      if (match == null)
+      const regexResults = m.results();
+      if (!regexResults.hasMatches)
         continue;
 
-      if (tok != null) {
-        if (partEq(tok, lit('\\')))
-          escape = true;
+      const matches = regexResults.matches;
+      if (matches.length !== 1)
+        throw new Error(`token ${tok} has many match-states at ${line}:${column}`);
 
-        if (partEq(tok, lit('\'')))
-          inStr = true;
+      const match = matches[0];
+      if (match.length < 1)
+        throw new Error(`token ${tok} has no capture groups at all at ${line}:${column}`);
 
-        res.push([tok, match[0]]);
-      }
-      str = str.slice(match[0].length);
-      break;
+      const wholeTokenGroup = match[0];
+      if (tokMatches.has(wholeTokenGroup.end))
+        throw new Error(`two matches at ${wholeTokenGroup.end}: ${tok} and ${tokMatches.get(wholeTokenGroup.end)}`);
+      tokMatches.set(wholeTokenGroup.end, tok);
+      ++numTokens[j];
+
+      res.push({
+        '?': tok,
+        match: wholeTokenGroup,
+        captures: match.slice(1),
+      });
+    }
+
+    if (!nonTrivialStateFound) {
+      res.push({
+        '?': 'char',
+        match: {
+          start: i, end: i,
+          str: c
+        },
+        captures: []
+      });
+      // throw new Error(`no token could meaningfully parse ${c} at ${line}:${column}. Unexpected character`);
     }
   }
 
