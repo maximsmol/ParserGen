@@ -117,6 +117,37 @@ export class NFAEval {
   dead() {
     return this.states.size === 0;
   }
+  hasNontrivialParseState() {
+    const q = [];
+    q.push(0);
+    const visited = new Set();
+
+    const stateIdSet = new Set();
+    for (const s of this.states)
+      stateIdSet.add(s.nfaState);
+
+    while (q.length > 0) {
+      const cur = q.pop();
+      if (visited.has(cur))
+        continue;
+
+      visited.add(cur);
+      stateIdSet.delete(cur);
+
+      if (stateIdSet.size === 0)
+        return false;
+
+      const arrows = this.nfa.arrows[cur];
+      for (const arrow of arrows) {
+        if (arrow['?'] === '&')
+          q.push(arrow.f);
+        if (arrow['?'] === '.')
+          q.push(arrow.f);
+      }
+    }
+
+    return true;
+  }
 
   restart() {
     this.i = 0;
