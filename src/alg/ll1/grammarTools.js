@@ -4,9 +4,10 @@ export const tagPart = (tag, x) => ({
   '?': tag, x
 });
 
-export const ref = x => tagPart('ref', x);
-export const tok = x => tagPart('tok', x);
-export const lit = x => tagPart('lit', x);
+export const ref = x => tagPart('id', x);
+export const tok = x => tagPart('token', x);
+export const lit = x => tagPart('char', x);
+export const space = x => tagPart('space', x);
 export const special = x => tagPart('special', x);
 export const epsilon = special('epsilon');
 
@@ -26,7 +27,7 @@ export const buildGrammar = desc => {
         continue;
 
       for (const t of sub) {
-        if (t['?'] === 'ref')
+        if (t['?'] === 'id')
           continue;
         g.ts.add(t);
       }

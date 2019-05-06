@@ -19,13 +19,15 @@ export const renderSubPart = x => {
   if (x['?'] == null || x.x == null)
     return '&invalid';
 
-  if (x['?'] === 'ref')
+  if (x['?'] === 'id')
     return x.x;
   if (x['?'] === 'special')
     return x.x === 'epsilon' ? '&' : '&'+x.x;
-  if (x['?'] === 'tok')
+  if (x['?'] === 'token')
     return x.x.length === 1 ? '_'+x.x : x.x;
-  if (x['?'] === 'lit')
+  if (x['?'] === 'char')
+    return escapeString(x.x);
+  if (x['?'] === 'space')
     return escapeString(x.x);
   return `${x['?']}/${x.x}`;
 };

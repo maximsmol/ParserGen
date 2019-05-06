@@ -1,4 +1,4 @@
-import {tok, lit, ref, special, epsilon, buildGrammar} from './grammarTools';
+import {tok, lit, space, ref, special, epsilon, buildGrammar} from './grammarTools';
 
 export const grammarRep = {
   S: [[ref('Rules')]],
@@ -6,7 +6,7 @@ export const grammarRep = {
   Rules: [[ref('Rules\'')], [ref('Rule'), ref('Rules\'')]],
   'Rules\'': [
     [epsilon],
-    [lit('\n'), ref('Rules')]
+    [space('\n'), ref('Rules')]
   ],
 
   Rule: [[tok('id'), lit('-'), lit('>'), ref('AllowNL'), ref('Subs')]],
@@ -20,6 +20,7 @@ export const grammarRep = {
 
   Sub: [
     [tok('id')],
+    [tok('token')],
     [ref('Str')]
   ],
 
@@ -30,6 +31,6 @@ export const grammarRep = {
     [special('any'), ref('StrChar')]
   ],
 
-  AllowNL: [[lit('\n')], [epsilon]]
+  AllowNL: [[space('\n')], [epsilon]]
 };
 export const grammar = buildGrammar(grammarRep);

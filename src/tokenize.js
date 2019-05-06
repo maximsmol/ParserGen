@@ -8,6 +8,8 @@ const tokenMap = {
   '.': 'char'*/
 };
 
+const tokenTokens = new Set(['id', 'token']);
+
 const regexManagers = [];
 const tokenNames = [];
 export const numTokens = [];
@@ -67,8 +69,19 @@ export const tokenize = (str) => {
       tokMatches.set(wholeTokenGroup.end, tok);
       ++numTokens[j];
 
+      if (tokenTokens.has(tok)) {
+        res.push({
+          '?': 'token',
+          x: tok,
+          match: wholeTokenGroup,
+          captures: match.slice(1),
+        });
+        continue;
+      }
+
       res.push({
         '?': tok,
+        x: wholeTokenGroup.str,
         match: wholeTokenGroup,
         captures: match.slice(1),
       });
@@ -77,8 +90,9 @@ export const tokenize = (str) => {
     if (!nonTrivialStateFound) {
       res.push({
         '?': 'char',
+        x: c,
         match: {
-          start: i, end: i,
+          start: i, end: i+1,
           str: c
         },
         captures: []
