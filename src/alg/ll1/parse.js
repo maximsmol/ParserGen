@@ -17,10 +17,16 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
   const pos = {
     col: 1, line: 1
   };
+  let oldI = -1;
   while (i < toks.length) {
     const newStyleTok = toks[i];
     const str = newStyleTok.match.str;
-    const t = newStyleTok; // todo: transition properly
+    const t = newStyleTok;
+
+    if (oldI !== i) {
+      logdeep(t);
+      oldI = i;
+    }
 
     if (t['?'] === 'space') {
       if (str === '\n') {

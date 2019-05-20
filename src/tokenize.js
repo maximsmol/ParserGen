@@ -1,12 +1,37 @@
 import {logdeep} from './util/logdeep';
 import {NFAEvalManager} from './alg/regex/nfa/manager';
+import {topotable, values as topotableValues} from './util/topotable';
 
 const tokenMap = {
   '[ \n\r\t\v]': 'space',
   '(?<![A-Za-z])[A-Z][A-Za-z0-9]*(?![A-Za-z0-9])\'*(?!\')[+*?]?(?![+*?])': 'id',
-  '(?<![A-Za-z])[a-z][A-Za-z0-9]*(?![A-Za-z0-9])': 'token'/*,
-  '.': 'char'*/
+  '&?(?<![A-Za-z])[a-z][A-Za-z0-9]*(?![A-Za-z0-9])|&': 'token',
+  '.': 'char'
 };
+
+
+const tokenPrecedenceAdj = [];
+const tokenN = new Map();
+{
+  let i = 0;
+  for (const v of Object.values(tokenMap)) {
+    tokenN.set(v, i);
+    tokenPrecedenceAdj[i] = [];
+    ++i;
+  }
+}
+const preferToken = (a, b) => {
+  tokenPrecedenceAdj[tokenN.get(a)].push(tokenN.get(b));
+};
+
+for (const v of Object.values(tokenMap)) {
+  if (v === 'char')
+    continue;
+  preferToken(v, 'char');
+}
+
+const tokenTopotable = topotable(tokenN.size, tokenPrecedenceAdj);
+
 
 const tokenTokens = new Set(['id', 'token']);
 
@@ -15,10 +40,12 @@ const tokenNames = [];
 export const numTokens = [];
 
 for (const [rawRegex, tok] of Object.entries(tokenMap)) {
+  const i = tokenN.get(tok);
+
   const regex = `.*(${rawRegex})`;
-  regexManagers.push(new NFAEvalManager(regex));
-  tokenNames.push(tok);
-  numTokens.push(0);
+  regexManagers[i] = new NFAEvalManager(regex);
+  tokenNames[i] = tok;
+  numTokens[i] = 0;
 }
 
 export const tokenize = (str) => {
@@ -29,9 +56,14 @@ export const tokenize = (str) => {
   let column = 0;
   let line = 1;
 
+  // todo: check for intersecting tokens more robustly, currently just checking no two tokens end at the same char
+  // todo: check that each character is somehow parsed
   const tokMatches = new Map();
   for (let i = 0; i < str.length; ++i) {
-    tokMatches.delete(i-1);
+    if (tokMatches.has(i-1)) {
+      res.push(tokMatches.get(i-1));
+      tokMatches.delete(i-1);
+    }
 
     const c = str[i];
 
@@ -64,41 +96,38 @@ export const tokenize = (str) => {
         throw new Error(`token ${tok} has no capture groups at all at ${line}:${column}`);
 
       const wholeTokenGroup = match[0];
-      if (tokMatches.has(wholeTokenGroup.end))
-        throw new Error(`two matches at ${wholeTokenGroup.end}: ${tok} and ${tokMatches.get(wholeTokenGroup.end)}`);
-      tokMatches.set(wholeTokenGroup.end, tok);
+      if (tokMatches.has(wholeTokenGroup.end)) {
+        const oldMatchI = tokenN.get(tokMatches.get(wholeTokenGroup.end)['?']);
+
+        if (tokenTopotable[j][oldMatchI] === topotableValues.before)
+          continue;
+        else if (tokenTopotable[j][oldMatchI] === topotableValues.after)
+          --numTokens[tokMatches.get(wholeTokenGroup.end)];
+        else
+          throw new Error(`two matches at ${wholeTokenGroup.end}: ${tok} and ${tokenNames[oldMatchI]}`);
+      }
       ++numTokens[j];
 
-      if (tokenTokens.has(tok)) {
-        res.push({
+      let cur = null;
+      if (tokenTokens.has(tok))
+        cur = {
           '?': 'token',
           x: tok,
           match: wholeTokenGroup,
           captures: match.slice(1),
-        });
-        continue;
-      }
-
-      res.push({
-        '?': tok,
-        x: wholeTokenGroup.str,
-        match: wholeTokenGroup,
-        captures: match.slice(1),
-      });
+        };
+      else
+        cur = {
+          '?': tok,
+          x: wholeTokenGroup.str,
+          match: wholeTokenGroup,
+          captures: match.slice(1),
+        };
+      tokMatches.set(wholeTokenGroup.end, cur);
     }
 
-    if (!nonTrivialStateFound) {
-      res.push({
-        '?': 'char',
-        x: c,
-        match: {
-          start: i, end: i+1,
-          str: c
-        },
-        captures: []
-      });
-      // throw new Error(`no token could meaningfully parse ${c} at ${line}:${column}. Unexpected character`);
-    }
+    if (!nonTrivialStateFound)
+      throw new Error(`no token could meaningfully parse ${c} at ${line}:${column}. Unexpected character`);
   }
 
   return res;
