@@ -1,6 +1,7 @@
 import {logdeep} from './util/logdeep';
 import {NFAEvalManager} from './alg/regex/nfa/manager';
 import {topotable, values as topotableValues} from './util/topotable';
+import {IntervalMap} from './util/IntervalMap';
 
 const tokenMap = {
   '[ \n\r\t\v]': 'space',
@@ -56,14 +57,12 @@ export const tokenize = (str) => {
   let column = 0;
   let line = 1;
 
-  // todo: check for intersecting tokens more robustly, currently just checking no two tokens end at the same char
   // todo: check that each character is somehow parsed
-  const tokMatches = new Map();
+  const tokMatches = new IntervalMap();
   for (let i = 0; i < str.length; ++i) {
-    if (tokMatches.has(i-1)) {
-      res.push(tokMatches.get(i-1));
-      tokMatches.delete(i-1);
-    }
+    if (tokMatches.getEndingAt(i-1) != null)
+      res.push(tokMatches.getEndingAt(i-1));
+    tokMatches.cleanUpTo(i-1);
 
     const c = str[i];
 
@@ -96,18 +95,24 @@ export const tokenize = (str) => {
         throw new Error(`token ${tok} has no capture groups at all at ${line}:${column}`);
 
       const wholeTokenGroup = match[0];
-      if (tokMatches.has(wholeTokenGroup.end)) {
-        const oldMatchI = tokenN.get(tokMatches.get(wholeTokenGroup.end)['?']);
 
-        if (tokenTopotable[j][oldMatchI] === topotableValues.before)
+      const oldMatch = tokMatches.get(wholeTokenGroup.start, wholeTokenGroup.end);
+      if (oldMatch != null) {
+        const oldMatchI = tokenN.get(oldMatch['?']);
+
+        if (tokenTopotable[j][oldMatchI] === topotableValues.before) {
+          console.log(`not changing ${wholeTokenGroup.start}-${wholeTokenGroup.end} from ${tokenNames[oldMatchI]} to ${tok}`);
           continue;
-        else if (tokenTopotable[j][oldMatchI] === topotableValues.after)
-          --numTokens[tokMatches.get(wholeTokenGroup.end)];
+        }
+        else if (tokenTopotable[j][oldMatchI] === topotableValues.after) {
+          console.log(`changing ${wholeTokenGroup.start}-${wholeTokenGroup.end} from ${tokenNames[oldMatchI]} to ${tok}`);
+          --numTokens[oldMatchI];
+        }
         else
-          throw new Error(`two matches at ${wholeTokenGroup.end}: ${tok} and ${tokenNames[oldMatchI]}`);
+          throw new Error(`two matches at ${wholeTokenGroup.start}: ${tok} and ${tokenNames[oldMatchI]}`);
       }
-      ++numTokens[j];
 
+      ++numTokens[j];
       let cur = null;
       if (tokenTokens.has(tok))
         cur = {
@@ -123,7 +128,7 @@ export const tokenize = (str) => {
           match: wholeTokenGroup,
           captures: match.slice(1),
         };
-      tokMatches.set(wholeTokenGroup.end, cur);
+      tokMatches.set(wholeTokenGroup.start, wholeTokenGroup.end, cur);
     }
 
     if (!nonTrivialStateFound)
