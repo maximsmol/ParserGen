@@ -17,6 +17,5 @@ import {promises as fs} from 'fs';
   const str = (await fs.readFile('./src/grammarGrammar.ll')).toString();
 
   const toks = tokenize(str);
-  logdeep(toks);
   logdeep(parse(bootstrapGrammar, {table, fiAs, foAs}, toks, true));
 })();

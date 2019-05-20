@@ -141,8 +141,6 @@ export class NFAEval {
       for (const arrow of arrows) {
         if (arrow['?'] === '&')
           q.push(arrow.f);
-        if (arrow['?'] === '.')
-          q.push(arrow.f);
       }
     }
 
