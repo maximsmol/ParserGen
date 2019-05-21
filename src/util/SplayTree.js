@@ -21,151 +21,184 @@ export class SplayTree {
     this.root = null;
   }
 
-  splay(x) {
+  splayL(x) {
     let root = this.root;
-    while (root != null) {
-      if (root.k === x)
+
+    if (root.l == null)
+      return false;
+
+    if (root.l.k === x) {
+      //  p
+      // x _
+
+      root = this.root = ror(root);
+      //  x
+      // _ p
+
+      return false;
+    }
+
+    if (x < root.l.k) {
+      if (root.l.l == null) {
+        //  p
+        // x _
+
+        root = this.root = ror(root);
+        //  x
+        // _ p
+
+        return false;
+      }
+
+      //    g
+      //  p   _
+      // x _
+      // zig-zig
+
+      root = this.root = ror(root);
+      //    p
+      //  x   g
+      // _ _ _ _
+
+      root = this.root = ror(root);
+      //    x
+      //  _   p
+      //     _ g
+    }
+    else {
+      if (root.l.r == null) {
+        //  p
+        // x _
+
+        root = this.root = ror(root);
+        //  x
+        // _ p
+
+        return false;
+      }
+
+      //    g
+      //  p   _
+      // _ x
+      // zig-zag
+
+      roll(root);
+      //    g
+      //  x   _
+      // p _
+
+      root = this.root = ror(root);
+      //    x
+      //  p   g
+      // _ _ _ _
+    }
+
+    return true;
+  }
+  splayR(x) {
+    let root = this.root;
+
+    if (root.r == null)
+      return false;
+
+    if (root.r.k === x) {
+      //  p
+      // _ x
+
+      root = this.root = rol(root);
+      //  x
+      // p _
+
+      return false;
+    }
+
+    if (x < root.r.k) {
+      if (root.r.l == null) {
+        //  p
+        // _ x
+
+        root = this.root = rol(root);
+        //  x
+        // p _
+
+        return false;
+      }
+
+      //    g
+      //  _   p
+      //     x _
+      // zag-zig
+
+      rorr(root);
+      //    g
+      //  _   x
+      //     _ p
+
+      root = this.root = rol(root);
+      //    x
+      //  g   p
+      // _ _ _ _
+    }
+    else {
+      if (root.r.r == null) {
+        //  p
+        // _ x
+
+        root = this.root = rol(root);
+        //  x
+        // p _
+
+        return false;
+      }
+
+      //    g
+      //  _   p
+      //     _ x
+      // zag-zag
+
+      root = this.root = rol(root);
+      //    p
+      //  g   x
+      // _ _ _ _
+
+      root = this.root = rol(root);
+      //    x
+      //  p   _
+      // g _
+    }
+
+    return true;
+  }
+
+  splay(x, forceDescend) {
+    if (this.root == null);
+
+    if (forceDescend === 'l') {
+      do {
+        if (!this.splayL(x))
+          return;
+      }
+      while (this.root.k === x);
+    }
+    else if (forceDescend === 'r') {
+      do {
+        if (!this.splayL(x))
+          return;
+      }
+      while (this.root.k === x);
+    }
+
+    while (this.root != null) {
+      if (this.root.k === x)
         return;
 
-      if (x < root.k) {
-        if (root.l == null)
+      if (x < this.root.k) {
+        if (!this.splayL(x))
           return;
-
-        if (root.l.k === x) {
-          //  p
-          // x _
-
-          root = this.root = ror(root);
-          //  x
-          // _ p
-
-          return;
-        }
-
-        if (x < root.l.k) {
-          if (root.l.l == null) {
-            //  p
-            // x _
-
-            root = this.root = ror(root);
-            //  x
-            // _ p
-
-            return;
-          }
-
-          //    g
-          //  p   _
-          // x _
-          // zig-zig
-
-          root = this.root = ror(root);
-          //    p
-          //  x   g
-          // _ _ _ _
-
-          root = this.root = ror(root);
-          //    x
-          //  _   p
-          //     _ g
-        }
-        else {
-          if (root.l.r == null) {
-            //  p
-            // x _
-
-            root = this.root = ror(root);
-            //  x
-            // _ p
-
-            return;
-          }
-
-          //    g
-          //  p   _
-          // _ x
-          // zig-zag
-
-          roll(root);
-          //    g
-          //  x   _
-          // p _
-
-          root = this.root = ror(root);
-          //    x
-          //  p   g
-          // _ _ _ _
-        }
       }
-      else if (x > root.k) {
-        if (root.r == null)
+      else if (x > this.root.k) {
+        if (!this.splayR(x))
           return;
-
-        if (root.r.k === x) {
-          //  p
-          // _ x
-
-          root = this.root = rol(root);
-          //  x
-          // p _
-
-          return;
-        }
-
-        if (x < root.r.k) {
-          if (root.r.l == null) {
-            //  p
-            // _ x
-
-            root = this.root = rol(root);
-            //  x
-            // p _
-
-            return;
-          }
-
-          //    g
-          //  _   p
-          //     x _
-          // zag-zig
-
-          rorr(root);
-          //    g
-          //  _   x
-          //     _ p
-
-          root = this.root = rol(root);
-          //    x
-          //  g   p
-          // _ _ _ _
-        }
-        else {
-          if (root.r.r == null) {
-            //  p
-            // _ x
-
-            root = this.root = rol(root);
-            //  x
-            // p _
-
-            return;
-          }
-
-          //    g
-          //  _   p
-          //     _ x
-          // zag-zag
-
-          root = this.root = rol(root);
-          //    p
-          //  g   x
-          // _ _ _ _
-
-          root = this.root = rol(root);
-          //    x
-          //  p   _
-          // g _
-        }
       }
     }
   }
@@ -175,8 +208,18 @@ export class SplayTree {
       return null;
 
     this.splay(k);
-    if (this.root.k <= k)
-      return this.root;
+    if (this.root.k === k) {
+      if (this.root.l == null)
+        return null;
+      this.splay(k, 'l');
+    }
+    if (this.root.k === k) {
+      logdeep(this.root);
+      throw new Error(`re-splaying didnt work for ${k}`);
+    }
+
+    if (this.root.k < k)
+      return this.root.v;
 
     this.splay(k);
     if (this.root.k > k) {
@@ -186,7 +229,7 @@ export class SplayTree {
       logdeep(this.root);
       throw new Error(`splay-splay invariant obviously invalid for pred of ${k}`);
     }
-    return this.root;
+    return this.root.v;
   }
 
   succ(k) {
@@ -194,8 +237,18 @@ export class SplayTree {
       return null;
 
     this.splay(k);
-    if (this.root.k >= k)
-      return this.root;
+    if (this.root.k === k) {
+      if (this.root.r == null)
+        return null;
+      this.splay(k, 'r');
+    }
+    if (this.root.k === k) {
+      logdeep(this.root);
+      throw new Error(`re-splaying didnt work for ${k}`);
+    }
+
+    if (this.root.k > k)
+      return this.root.v;
 
     this.splay(k);
     if (this.root.k < k) {
@@ -205,7 +258,7 @@ export class SplayTree {
       logdeep(this.root);
       throw new Error(`splay-splay invariant obviously invalid for succ of ${k}`);
     }
-    return this.root;
+    return this.root.v;
   }
 
   set(k, v) {

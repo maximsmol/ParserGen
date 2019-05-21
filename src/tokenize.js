@@ -57,12 +57,25 @@ export const tokenize = (str) => {
   let column = 0;
   let line = 1;
 
-  // todo: check that each character is somehow parsed
   const tokMatches = new IntervalMap();
+
+  let latestEmitted = 0;
+  let latestBusy = -1; // todo: commit tokens early based on precedence
+  // todo: manually clear regex states that will emit tokens that will be thrown away based on precedence
+
   for (let i = 0; i < str.length; ++i) {
-    if (tokMatches.getEndingAt(i-1) != null)
-      res.push(tokMatches.getEndingAt(i-1));
-    tokMatches.cleanUpTo(i-1);
+    while (latestEmitted < latestBusy) {
+      if (tokMatches.get(latestEmitted, latestEmitted+1) == null) {
+        logdeep(tokMatches);
+        throw new Error(`no match at ${latestEmitted}`);
+      }
+
+      if (tokMatches.getEndingAt(latestEmitted) != null)
+        res.push(tokMatches.getEndingAt(latestEmitted));
+
+      ++latestEmitted;
+    }
+    tokMatches.cleanUpTo(latestEmitted);
 
     const c = str[i];
 
@@ -73,6 +86,7 @@ export const tokenize = (str) => {
     else
       ++column;
 
+    latestBusy = -1;
     let nonTrivialStateFound = false;
     for (let j = 0; j < regexManagers.length; ++j) {
       const tok = tokenNames[j];
@@ -81,6 +95,17 @@ export const tokenize = (str) => {
       const nfaEval = m.nfaEval;
       nfaEval.step(c);
       nonTrivialStateFound = nonTrivialStateFound || nfaEval.hasNontrivialParseState();
+
+      for (const s of nfaEval.states) {
+        const wholeTokenGroup = m.stateGroupMatch(s, 1);
+        if (wholeTokenGroup.start == null || wholeTokenGroup.end == null)
+          continue;
+
+        if (latestBusy === -1)
+          latestBusy = wholeTokenGroup.start;
+        else
+          latestBusy = Math.min(latestBusy, wholeTokenGroup.start);
+      }
 
       const regexResults = m.results();
       if (!regexResults.hasMatches)
@@ -100,14 +125,10 @@ export const tokenize = (str) => {
       if (oldMatch != null) {
         const oldMatchI = tokenN.get(oldMatch['?']);
 
-        if (tokenTopotable[j][oldMatchI] === topotableValues.before) {
-          console.log(`not changing ${wholeTokenGroup.start}-${wholeTokenGroup.end} from ${tokenNames[oldMatchI]} to ${tok}`);
+        if (tokenTopotable[j][oldMatchI] === topotableValues.before)
           continue;
-        }
-        else if (tokenTopotable[j][oldMatchI] === topotableValues.after) {
-          console.log(`changing ${wholeTokenGroup.start}-${wholeTokenGroup.end} from ${tokenNames[oldMatchI]} to ${tok}`);
+        else if (tokenTopotable[j][oldMatchI] === topotableValues.after)
           --numTokens[oldMatchI];
-        }
         else
           throw new Error(`two matches at ${wholeTokenGroup.start}: ${tok} and ${tokenNames[oldMatchI]}`);
       }
@@ -133,6 +154,14 @@ export const tokenize = (str) => {
 
     if (!nonTrivialStateFound)
       throw new Error(`no token could meaningfully parse ${c} at ${line}:${column}. Unexpected character`);
+  }
+
+  while (latestEmitted < str.length) { // todo: code duplication
+    if (tokMatches.get(latestEmitted, latestEmitted+1) == null)
+      throw new Error(`no match at ${latestEmitted}`);
+    if (tokMatches.getEndingAt(latestEmitted) != null)
+      res.push(tokMatches.getEndingAt(latestEmitted));
+    ++latestEmitted;
   }
 
   return res;

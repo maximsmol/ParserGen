@@ -12,8 +12,6 @@ export class IntervalMap {
     { // todo: generalize this into a function?
       let pred = this.startOrder.pred(start);
       while (pred != null) {
-        pred = pred.v;
-
         if (pred.start > start)
           throw new Error(`invalid predecessor: ${pred} for ${cur}`);
         if (pred.end > start)
@@ -26,8 +24,6 @@ export class IntervalMap {
 
       let succ = this.startOrder.succ(start);
       while (succ != null) {
-        succ = succ.v;
-
         if (succ.start < start)
           throw new Error(`invalid successor: ${pred} for ${cur}`);
         if (succ.start < end)
@@ -41,8 +37,6 @@ export class IntervalMap {
     {
       let pred = this.endOrder.pred(end);
       while (pred != null) {
-        pred = pred.v;
-
         if (pred.end > end)
           throw new Error(`invalid predecessor: ${pred} for ${cur}`);
         if (pred.end > start)
@@ -55,8 +49,6 @@ export class IntervalMap {
 
       let succ = this.endOrder.succ(end);
       while (succ != null) {
-        succ = succ.v;
-
         if (succ.end < end)
           throw new Error(`invalid successor: ${pred} for ${cur}`);
         if (succ.start < end)
@@ -80,21 +72,13 @@ export class IntervalMap {
   // returns whichever intersecting interval is more convenient
   // todo: make sure this is the expected behavior for a non-intersecting inteval map
   get(start, end) {
-    let succ = this.startOrder.succ(start);
-    if (succ != null) {
-      succ = succ.v;
+    let pred = this.startOrder.pred(end);
+    if (pred != null && pred.end > start)
+      return pred.v;
 
-      if (succ.start < end)
-        return succ.v;
-    }
-
-    let pred = this.endOrder.pred(end);
-    if (pred != null) {
-      pred = pred.v;
-
-      if (pred.end > start)
-        return pred.v;
-    }
+    let succ = this.endOrder.succ(start);
+    if (succ != null && succ.start < end)
+      return succ.v;
 
     return null;
   }
@@ -103,8 +87,6 @@ export class IntervalMap {
     let cur = this.startOrder.pred(i);
     if (cur == null)
       return null;
-
-    cur = cur.v;
     if (i > cur.end)
       return null;
 
@@ -120,7 +102,6 @@ export class IntervalMap {
   cleanUpTo(i) {
     let int = this.endOrder.pred(i);
     while (int != null) {
-      int = int.v;
       this.del(int);
 
       int = this.endOrder.pred(i);
