@@ -84,10 +84,8 @@ export class IntervalMap {
   }
 
   intervalEndingAt(i) {
-    let cur = this.startOrder.pred(i);
+    let cur = this.endOrder.get(i);
     if (cur == null)
-      return null;
-    if (i > cur.end)
       return null;
 
     return cur;
@@ -96,6 +94,7 @@ export class IntervalMap {
     const int = this.intervalEndingAt(i);
     if (int == null)
       return null;
+
     return int.v;
   }
 
