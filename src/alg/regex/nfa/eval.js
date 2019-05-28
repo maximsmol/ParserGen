@@ -301,6 +301,27 @@ export class NFAEval {
           }
           continue;
         }
+        if (a['?'] === 'inv_class') {
+          const code = c.charCodeAt(0);
+          let doNotTake = false;
+          for (const x of a.x) {
+            if (x['?'] === 'char') {
+              if (c === x.x) {
+                doNotTake = true;
+                break;
+              }
+            }
+            else if (x['?'] === 'a-b') {
+              if (x.a.x.charCodeAt(0) <= code && code <= x.b.x.charCodeAt(0)) {
+                doNotTake = true;
+                break;
+              }
+            }
+          }
+          if (!doNotTake)
+            this.takeArrow(arrowDescriptor);
+          continue;
+        }
         if (a['?'] === '&')
           continue;
         throw new Error(`Unknown arrow type ${a['?']}`);

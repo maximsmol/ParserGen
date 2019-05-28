@@ -87,7 +87,10 @@ class ThompsonConstructor {
     }
     if (regex['?'] === '[]') {
       const ch = this.newStateId(getEndOfNode(regex));
-      this.addArrow(s, ch, 'class', regex.x);
+      if (!regex.inverse)
+        this.addArrow(s, ch, 'class', regex.x);
+      else
+        this.addArrow(s, ch, 'inv_class', regex.x);
       return ch;
     }
     if (regex['?'] === '|') {
