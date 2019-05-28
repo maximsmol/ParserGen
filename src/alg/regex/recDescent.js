@@ -96,8 +96,9 @@ class RegexDescent {
   }
 
   printRange() {
-    console.log(this.regex.substring(this.i-40, this.i+40));
-    console.log(' '.repeat(39)+'^');
+    let n = Math.min(40, this.i);
+    console.log(this.regex.substring(this.i-n, this.i+n));
+    console.log(' '.repeat(n-1)+'^');
   }
   err(x) {
     this.printRange();
@@ -174,18 +175,29 @@ class RegexDescent {
   //   $ if anchor
   parseChar(controlChars, autoescape) {
     const mapping = this.startSourceMapping();
-    if (this.mayConsume('\\')) {
+    let x = this.peek();
+    this.next();
+
+    if (autoescape.includes(x)) {
+      this.endSourceMapping(mapping);
+      return withSourceMapping({
+        '?': 'char',
+        x, escaped: true
+      }, mapping);
+    }
+
+    if (x === '\\') {
       if (this.isEOF()) {
         if (!this.config.allowEOFEscape)
           this.err('regex ends in escape');
         return {'?': '&'};
       }
 
-      let x = this.peek();
+      let c = this.peek();
 
       const hexCharsUC = 'ABCDEF';
       const hexChars = '0123456789abcdef'+hexCharsUC;
-      if (this.config.escapes.allowHex && x === 'x' &&
+      if (this.config.escapes.allowHex && c === 'x' &&
           hexChars.includes(this.lookahead())) {
         this.next();
 
@@ -206,30 +218,20 @@ class RegexDescent {
       }
 
 
-      if (this.config.verifyEscapes && !controlChars.includes(x))
-        this.err(`invalid escape \\${x} at ${this.i}. can escape any of ${escapeString(controlChars)}`);
+      if (this.config.verifyEscapes && !controlChars.includes(c))
+        this.err(`invalid escape \\${c} at ${this.i}. can escape any of ${escapeString(controlChars)}`);
 
       this.next();
       this.endSourceMapping(mapping);
       return withSourceMapping({
         '?': 'char',
-        x, escaped: true
+        x: c, escaped: true
       }, mapping);
     }
 
-    let x = this.peek();
-    this.next();
     if (x === '.') {
       this.endSourceMapping(mapping);
       return withSourceMapping({'?': '.'}, mapping);
-    }
-
-    if (autoescape.includes(x)) {
-      this.endSourceMapping(mapping);
-      return withSourceMapping({
-        '?': 'char',
-        x, escaped: true
-      }, mapping);
     }
 
     if (x === ')' && this.config.errOnUnmatchedParen)
