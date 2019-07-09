@@ -1,3 +1,5 @@
+import util from 'util';
+
 import {logdeep} from './util/logdeep';
 import {tokenize} from './tokenize';
 
@@ -17,5 +19,17 @@ import {promises as fs} from 'fs';
   const str = (await fs.readFile('./src/grammarGrammar.ll')).toString();
 
   const toks = tokenize(str);
-  logdeep(parse(bootstrapGrammar, {table, fiAs, foAs}, toks, true));
+  const res = parse(bootstrapGrammar, {table, fiAs, foAs}, toks, false);
+
+  const visit = (ast, indent) => {
+    if (ast.x['?'] === 'id')
+      console.log(`${indent}${ast.x.x}:`);
+    else if (ast.x['?'] !== 'epsilon')
+      console.log(`${indent}${ast.str.replace('\n', '\\n').replace('\r', '\\r')}`);
+
+    let newIndent = indent + '  ';
+    for (let i = 0; i < ast.children.length; ++i)
+      visit(ast.children[i], newIndent);
+  };
+  visit(res, '');
 })();

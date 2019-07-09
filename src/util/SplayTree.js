@@ -182,7 +182,7 @@ export class SplayTree {
     }
     else if (forceDescend === 'r') {
       do {
-        if (!this.splayL(x))
+        if (!this.splayR(x))
           return;
       }
       while (this.root.k === x);
