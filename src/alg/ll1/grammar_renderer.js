@@ -1,5 +1,3 @@
-import escapeString from 'js-string-escape';
-
 import {renderTabular} from '../../util/renderTabular';
 import {repGrammar} from './grammarTools';
 
@@ -21,14 +19,10 @@ export const renderSubPart = x => {
 
   if (x['?'] === 'id')
     return x.x;
-  if (x['?'] === 'special')
-    return x.x === 'epsilon' ? '&' : '&'+x.x;
+  if (x['?'] === 'epsilon')
+    return '&';
   if (x['?'] === 'token')
-    return x.x.length === 1 ? '_'+x.x : x.x;
-  if (x['?'] === 'char')
-    return escapeString(x.x);
-  if (x['?'] === 'space')
-    return escapeString(x.x);
+    return x.x;
   return `${x['?']}/${x.x}`;
 };
 export const renderSub = sub => sub.map(renderSubPart);

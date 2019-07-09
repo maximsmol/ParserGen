@@ -6,10 +6,7 @@ export const tagPart = (tag, x) => ({
 
 export const ref = x => tagPart('id', x);
 export const tok = x => tagPart('token', x);
-export const lit = x => tagPart('char', x);
-export const space = x => tagPart('space', x);
-export const special = x => tagPart('special', x);
-export const epsilon = special('epsilon');
+export const epsilon = tagPart('epsilon', null);
 
 export const partEq = (a, b) => a['?'] === b['?'] && a.x === b.x;
 
