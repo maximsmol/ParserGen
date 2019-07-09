@@ -59,7 +59,8 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
         console.log(tablePartToStr(g, table, [nt]));
         console.log(`No transition from ${nt} on ${t['?']}`);
 
-        let pathForest = [];
+        let pathTree = [];
+        // tree of all paths through the AST that lead to any node on the parseStack
         const visited = new Map();
         for (let i = 0; i < parseStack.length; ++i) {
           let path = null;
@@ -80,15 +81,15 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
           }
 
           if (!merged)
-            pathForest.push(path);
+            pathTree.push(path);
         }
 
-        const parseTreeNodeSource = (node) => {
+        const unrollParseTreeSourceString = (node) => {
           let res = [];
           for (const c of node.children) {
             const x = c.x;
             if (x['?'] === 'id')
-              res.push(parseTreeNodeSource(c));
+              res.push(unrollParseTreeSourceString(c));
             else
               res.push(c.str.replace('\n', '\\n').replace('\r', '\\r'));
           }
@@ -102,27 +103,27 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
           if (x['?'] !== 'id')
             return renderSubPart(x);
 
-          return `${x.x} <-| ${parseTreeNodeSource(n)}`;
+          return `${x.x} <-| ${unrollParseTreeSourceString(n)}`;
         };
-        const visit = (node, pathForest, indentLevel) => {
+        const visit = (node, pathTree, indentLevel) => {
           const indent = '  '.repeat(indentLevel);
 
-          const forestPaths = pathForest.map(([i,]) => i);
+          const forestPaths = pathTree.map(([i,]) => i);
           for (let i = 0; i < node.children.length; ++i) {
             const child = node.children[i];
 
-            const subForestI = forestPaths.indexOf(i);
+            const subTreeI = forestPaths.indexOf(i);
             const parseStackI = parseStack.indexOf(child);
             const prefix = `${indent}${parseStackI !== -1 ? (parseStack.length - parseStackI)+': ' : ''}`;
-            if (subForestI !== -1) {
+            if (subTreeI !== -1) {
               console.log(`${prefix}${child.x.x}`);
-              visit(child, pathForest[subForestI][1], indentLevel+1);
+              visit(child, pathTree[subTreeI][1], indentLevel+1);
             }
             else
               console.log(`${prefix}${parseTreeNodeToString(child)}`);
           }
         };
-        visit(start, pathForest, 0);
+        visit(start, pathTree, 0);
 
         throw new Error(`Parser error. ${errorReport}`);
       }
