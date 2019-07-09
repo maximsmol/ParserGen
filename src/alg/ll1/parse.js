@@ -2,9 +2,11 @@ import {inspectdeep} from '../../util/inspectdeep';
 import {renderSubPart, ruleToStr, tablePartToStr} from './grammar_renderer';
 import escapeString from 'js-string-escape';
 
-import {ref, epsilon, special, partEq} from './grammarTools';
+import {ref, tok, epsilon, partEq} from './grammarTools';
 
 import {logdeep} from '../../util/logdeep';
+
+const renderToken = (t) => t['?'];
 
 export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
   if (trace !== true)
@@ -17,24 +19,16 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
   const pos = {
     col: 1, line: 1
   };
-  let oldI = -1;
   while (i < toks.length) {
-    const newStyleTok = toks[i];
-    const str = newStyleTok.match.str;
-    const t = newStyleTok;
-
-    if (oldI !== i) {
-      logdeep(t);
-      oldI = i;
-    }
+    const t = toks[i];
 
     if (t['?'] === 'space') {
-      if (str === '\n') {
+      if (t.x === '\n') {
         pos.col = 1;
         ++pos.line;
       }
       else { // todo: don't ignore spaces?
-        pos.col += str.length;
+        pos.col += t.x.length;
 
         ++i;
         continue;
@@ -52,21 +46,18 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
       const row = table.get(nt);
 
       if (row == null)
-        throw new Error(`Parse stack corrupt: unknown non-terminal.\nT=${renderSubPart(t)} <-| ${escapeString(str)}\nExpected: ${renderSubPart(x)}\n${inspectdeep(parseStack)}`);
+        throw new Error(`Parse stack corrupt: unknown non-terminal.\nT=${renderToken(t)} <-| ${escapeString(t.x)}\nExpected: ${renderSubPart(x)}\n${inspectdeep(parseStack)}`);
 
-      const ruleI = row.get(t);
+      const ruleI = row.get(tok(t['?']));
       if (ruleI == null) {
-        logdeep(row);
-        logdeep(t);
-
-        const errorReport = `${pos.line}:${pos.col}: Unexpected token ${renderSubPart(t)} <-| ${escapeString(str)}`;
+        const errorReport = `${pos.line}:${pos.col}: Unexpected token ${renderToken(t)} <-| ${escapeString(t.x)}`;
         console.log(errorReport);
 
         const fiA = Array.from(fiAs.get(nt).keys()).map(renderSubPart);
         const foA = Array.from(foAs.get(nt).keys()).map(renderSubPart);
         console.log(`Expected one of: ${fiA.concat(foA).join(', ')}`);
         console.log(tablePartToStr(g, table, [nt]));
-        console.log(`No transition from ${nt} on ${renderSubPart(t)}`);
+        console.log(`No transition from ${nt} on ${t['?']}`);
 
         let pathForest = [];
         const visited = new Map();
@@ -138,7 +129,7 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
       const rule = g.rules[ruleI];
 
       if (trace)
-        console.log(`${pos.line}:${pos.col}: Matched ${renderSubPart(t)} <-| '${escapeString(str)}' -- ${ruleI}: ${ruleToStr(rule)}`);
+        console.log(`${pos.line}:${pos.col}: Matched ${renderToken(t)} <-| '${escapeString(t.x)}' -- ${ruleI}: ${ruleToStr(rule)}`);
       for (let j = rule.sub.length-1; j >= 0; --j) {
         const child = {x: rule.sub[j], children: [], parent: node};
         node.children.push(child);
@@ -146,29 +137,22 @@ export const parse = (g, {table, fiAs, foAs}, toks, trace) => {
       }
       node.children.reverse();
     }
-    else if (x['?'] === 'token' || x['?'] === 'char' || x['?'] === 'space') {
-      if (!partEq(t, x))
-        throw new Error(`Parsing error.\nT=${renderSubPart(t)} <-| ${escapeString(str)}\nExpected: ${renderSubPart(x)}\n${inspectdeep(parseStack)}`);
+    else if (x['?'] === 'token') {
+      if (x.x !== t['?'])
+        throw new Error(`Parsing error.\nT=${renderToken(t)} <-| ${escapeString(t.x)}\nExpected: ${renderSubPart(x)}\n${inspectdeep(parseStack)}`);
       if (trace)
-        console.log(`Matched ${renderSubPart(t)} <-| '${escapeString(str)}'`);
-      node.str = str;
+        console.log(`Matched ${t['?']} <-| '${escapeString(t.x)}'`);
+      node.str = t.x;
       ++i;
-      pos.col += str.length;
+      pos.col += t.x.length;
     }
     else if (partEq(x, epsilon)) {
       if (trace)
         console.log(`Matched &`);
       node.str = '';
     }
-    else if (partEq(x, special('any'))) {
-      if (trace)
-        console.log(`Matched &any <-| '${escapeString(str)}'`);
-      node.str = str;
-      ++i;
-      pos.col += str.length;
-    }
     else
-      throw new Error(`Parse stack corrupt.\nT=${renderSubPart(t)} <-| ${escapeString(str)}\nExpected: ${renderSubPart(x)}\n${inspectdeep(parseStack)}`);
+      throw new Error(`Parse stack corrupt.\nT=${renderToken(t)} <-| ${escapeString(t.x)}\nExpected: ${renderSubPart(x)}\n${inspectdeep(parseStack)}`);
   }
 
   return start;

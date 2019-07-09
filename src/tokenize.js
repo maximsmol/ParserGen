@@ -7,7 +7,12 @@ const tokenMap = {
   '[ \n\r\t\v]': 'space',
   '(?<![A-Za-z])[A-Z][A-Za-z0-9]*(?![A-Za-z0-9])\'*(?!\')[+*?]?(?![+*?])': 'id',
   '&?(?<![A-Za-z])[a-z][A-Za-z0-9]*(?![A-Za-z0-9])|&': 'token',
-  '.': 'char'
+  '[^\'\\]': 'strchar',
+  '\'': '\'',
+  '\\\\': '\\',
+  '-': '-',
+  '>': '>',
+  '\\|': '|',
 };
 
 
@@ -25,16 +30,30 @@ const preferToken = (a, b) => {
   tokenPrecedenceAdj[tokenN.get(a)].push(tokenN.get(b));
 };
 
-for (const v of Object.values(tokenMap)) {
-  if (v === 'char')
-    continue;
-  preferToken(v, 'char');
-}
+preferToken('space', 'strchar');
+
+preferToken('id', 'strchar');
+preferToken('id', '\'');
+preferToken('id', '\\');
+preferToken('id', '-');
+preferToken('id', '>');
+preferToken('id', '|');
+
+preferToken('token', 'strchar');
+preferToken('token', '\'');
+preferToken('token', '\\');
+preferToken('token', '-');
+preferToken('token', '>');
+preferToken('token', '|');
+
+preferToken('\'', 'strchar');
+preferToken('\\', 'strchar');
+preferToken('-', 'strchar');
+preferToken('>', 'strchar');
+preferToken('|', 'strchar');
 
 const tokenTopotable = topotable(tokenN.size, tokenPrecedenceAdj);
 
-
-const tokenTokens = new Set(['id', 'token']);
 
 const regexManagers = [];
 const tokenNames = [];
@@ -129,26 +148,19 @@ export const tokenize = (str) => {
           continue;
         else if (tokenTopotable[j][oldMatchI] === topotableValues.after)
           --numTokens[oldMatchI];
-        else
+        else {
+          console.log(`${wholeTokenGroup.start}-${wholeTokenGroup.end}:`, str.substring(wholeTokenGroup.start, wholeTokenGroup.end));
           throw new Error(`two matches at ${wholeTokenGroup.start}: ${tok} and ${tokenNames[oldMatchI]}`);
+        }
       }
 
       ++numTokens[j];
-      let cur = null;
-      if (tokenTokens.has(tok))
-        cur = {
-          '?': 'token',
-          x: tok,
-          match: wholeTokenGroup,
-          captures: match.slice(1),
-        };
-      else
-        cur = {
-          '?': tok,
-          x: wholeTokenGroup.str,
-          match: wholeTokenGroup,
-          captures: match.slice(1),
-        };
+      const cur = {
+        '?': tok,
+        x: wholeTokenGroup.str,
+        match: wholeTokenGroup,
+        captures: match.slice(1),
+      };
       tokMatches.set(wholeTokenGroup.start, wholeTokenGroup.end, cur);
     }
 
