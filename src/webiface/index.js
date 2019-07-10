@@ -36,15 +36,14 @@ export const genIndex = () => {
             </div>
 
             <div class='tab-active' id='tab-regex-parser'>
-              <div class='row'>
+              <div>
                 <h1 class='tab-header'>Regex parser</h1>
               </div>
-              <div class='row'>
+              <div>
                 <input class='input-regex font-150' id='regex-parser-input' type='text' placeholder='RegEx'/>
               </div>
-              <div class='row'>
-                <pre id='regex-parser-output'>
-                </pre>
+              <div>
+                <pre class='regex-parser-output' id='regex-parser-output'/>
               </div>
             </div>
             <div class='tab' id='tab-regex-nfa'>
