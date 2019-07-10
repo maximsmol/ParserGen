@@ -11,7 +11,7 @@ const withSourceMapping = (arr, mapping) => {
 };
 
 // http://pubs.opengroup.org/onlinepubs/9699919799/
-class RegexDescent {
+export class RegexDescent {
   regex;
   i;
   res;
@@ -19,10 +19,16 @@ class RegexDescent {
 
   // add ^ and $ special symbols
   constructor(regex, config) {
+    if (regex === '')
+      throw new Error('Cannot parse an empty RegEx.');
+
     this.regex = regex;
     this.i = 0;
+    this.errorReport = [];
 
     this.config = coerceWDefault({ // POSIX ERE
+      dumpErrorReports: true,
+
       errOnUnmatchedParen: false,
       errOnOrphanPipe: true,
 
@@ -71,22 +77,22 @@ class RegexDescent {
 
   peek() {
     if (this.isEOF())
-      this.err('parser error. peek out of bounds');
+      this.err('Internal bug: detected an invariant violation. Peek went out of bounds.');
     return this.regex[this.i];
   }
   lookahead() {
     if (this.isPreEOF())
-      this.err('parser error. lookahead out of bounds');
+      this.err('Internal bug: detected an invariant violation. Lookahead went out of bounds.');
     return this.regex[this.i+1];
   }
   next() {
     this.i++;
     if (this.i > this.regex.length)
-      this.err('parser error. went out of bounds');
+      this.err('Internal bug: detected an invariant violation. Parser went out of bounds.');
   }
   expected(x) {
     const c = this.isEOF() ? 'EOF' : this.peek();
-    this.err(`expected: ${x}, got ${c} at ${this.i}`);
+    this.err(`Found an unexpected character ${c} at ${this.i}, was expecting ${x}.`);
   }
   isPreEOF() {
     return this.i+1 === this.regex.length;
@@ -95,14 +101,21 @@ class RegexDescent {
     return this.i === this.regex.length;
   }
 
+  addErrorToReport(err) {
+    if (this.config.dumpErrorReports) {
+      console.log(err);
+    }
+
+    this.errorReport.push(err);
+  }
   printRange() {
     let n = Math.min(40, this.i);
-    console.log(this.regex.substring(this.i-n, this.i+n));
-    console.log(' '.repeat(n-1)+'^');
+    this.addErrorToReport(this.regex.substring(this.i-n, this.i+n));
+    this.addErrorToReport(' '.repeat(n-1)+'^');
   }
   err(x) {
     this.printRange();
-    console.log(x);
+    this.addErrorToReport(x);
     throw new Error(x);
   }
 
@@ -144,13 +157,13 @@ class RegexDescent {
   }
   setSourceMappingAnchor(mapping) {
     if (mapping.anchor != null)
-      throw new Error('trying to anchor a sourcemap twice');
+      throw new Error('Internal bug: detected an invariant violation. Tried to anchor a sourcemap twice.');
 
     mapping.anchor = this.i;
   }
   endSourceMapping(mapping) {
     if (mapping.range.end != null)
-      throw new Error('trying to end a sourcemap twice');
+      throw new Error('Internal bug: detected an invariant violation. Tried to end a sourcemap twice.');
 
     mapping.range.end = this.i;
   }
@@ -189,7 +202,7 @@ class RegexDescent {
     if (x === '\\') {
       if (this.isEOF()) {
         if (!this.config.allowEOFEscape)
-          this.err('regex ends in escape');
+          this.err('Found an unfinished escape at EOF. You can silence this error with `allowEOFEscape`.');
         return {'?': '&'};
       }
 
@@ -219,7 +232,7 @@ class RegexDescent {
 
 
       if (this.config.verifyEscapes && !controlChars.includes(c))
-        this.err(`invalid escape \\${c} at ${this.i}. can escape any of ${escapeString(controlChars)}`);
+        this.err(`Found an invalid escape \\${c} at ${this.i}, was expecting an escape of any of ${escapeString(controlChars)}. You can silence this error with \`verifyEscapes\`.`);
 
       this.next();
       this.endSourceMapping(mapping);
@@ -235,11 +248,11 @@ class RegexDescent {
     }
 
     if (x === ')' && this.config.errOnUnmatchedParen)
-      this.err(`unmatched parenthesis at ${this.i}`);
+      this.err(`Found unmatched parenthesis at ${this.i}. You can silence this error with \`errOnUnmatchedParen\`.`);
     if ('*+?{'.includes(x) && this.config.bound.errOnOrphanModifier)
-      this.err(`orphan bound modifier ${x} at ${this.i}`);
+      this.err(`Found an orphan bound modifier ${x} at ${this.i}. You can silence this error with \`bound.errOnOrphanModifier\`.`);
     if (x === '|' && this.config.errOnOrphanPipe)
-      this.err(`orphan | at ${this.i}`);
+      this.err(`Found an orphan | at ${this.i}. You can silence this error with \`errOnOrphanPipe\`.`);
 
     this.endSourceMapping(mapping);
     return withSourceMapping({
@@ -253,7 +266,7 @@ class RegexDescent {
     if (this.mayConsume('(')) {
       if (this.mayConsume(')')) {
         if (!this.config.allowEmptyGroup)
-          this.err(`empty group at ${this.i}`);
+          this.err(`Found an empty group at ${this.i}. You can silence this error with \`allowEmptyGroup\`.`);
         this.endSourceMapping(atomMapping);
         return withSourceMapping({
           '?': '&'
@@ -341,7 +354,7 @@ class RegexDescent {
           this.endSourceMapping(charMapping);
 
           if (a === '-' && this.peek() !== ']')
-            this.err(`ranges share an endpoint at ${this.i}`);
+            this.err(`Found two ranges that share an endpoint at ${this.i}.`);
 
           const dashMapping = this.startSourceMapping();
           if (this.mayConsume('-')) {
@@ -350,7 +363,7 @@ class RegexDescent {
 
             if (this.peek() !== ']') {
               if (!this.config.charClass.allowRanges)
-                this.err(`unacceptable range ${a.x}-${b.x} at ${this.i} as range support is disabled`);
+                this.err(`Found a disallowed range ${a.x}-${b.x} at ${this.i}. You can enable character range support with \`charClass.allowRanges\`.`);
 
               const endCharMapping = this.startSourceMapping();
               const b = this.peek();
@@ -358,7 +371,7 @@ class RegexDescent {
               this.endSourceMapping(endCharMapping);
 
               if (this.config.charClass.errOnInvalidRange && a.charCodeAt(0) > b.charCodeAt(0))
-                this.err(`invalid range ${a}-${b} at ${this.i} as ${a} > ${b}`);
+                this.err(`Found a range ${a}-${b} with switched endpoints at ${this.i}. You can silence this warning with \`charClass.errOnInvalidRange\`.`);
 
               this.endSourceMapping(charRangeMapping);
               chars.push(withSourceMapping({
@@ -381,7 +394,7 @@ class RegexDescent {
       }
       else if (this.config.charClass.autoescape.closingBracketInFirstPlace || this.peek() !== ']') {
         if (!this.config.charClass.autoescape.dashAtTheStart && this.peek() === '-')
-          this.err(`unescaped - at ${this.i}`);
+          this.err(`Found an unescaped - at the start of a character class at ${this.i}. You can silence this error with \`charClass.autoescape.dashAtTheStart\`.`);
 
         let autoescapeChars = '.[$()|*+?{\\';
         let controlChars = ']';
@@ -400,15 +413,15 @@ class RegexDescent {
           const a = this.parseChar(controlChars, autoescapeChars);
           if (a.x === '^' && !a.escaped) {
             if (!this.config.charClass.autoescape.caretInNonfirstPlace)
-              this.err(`unescaped ^ at ${this.i}`);
+              this.err(`Found an unescaped ^ inside a character class at ${this.i}. Silence this error with \`autoescape.caretInNonfirstPlace\``);
             a.escaped = true;
           }
           if (a.x === '-' && !a.escaped) {
             if (this.peek() !== ']')
-              this.err(`ranges share an endpoint at ${this.i}`);
+              this.err(`Found two ranges that share an endpoint at ${this.i}.`);
 
             if (!this.config.charClass.autoescape.dashAtTheEnd)
-              this.err(`unescaped - at ${this.i}`);
+              this.err(`Found an unescaped - at the end of a character class at ${this.i}. You can silence this error with \`charClass.autoescape.dashAtTheEnd\`.`);
           }
 
           const dashMapping = this.startSourceMapping();
@@ -418,12 +431,12 @@ class RegexDescent {
 
             if (this.peek() !== ']') {
               if (!this.config.charClass.allowRanges)
-                this.err(`unacceptable range ${a.x}-${b.x} at ${this.i} as range support is disabled`);
+                this.err(`Found a disallowed range ${a.x}-${b.x} at ${this.i}. You can enable character range support with \`charClass.allowRanges\`.`);
 
               const b = this.parseChar(controlChars, autoescapeChars);
 
               if (this.config.charClass.errOnInvalidRange && a.x.charCodeAt(0) > b.x.charCodeAt(0))
-                this.err(`invalid range ${a.x}-${b.x} at ${this.i} as ${a.x} > ${b.x}`);
+                this.err(`Found a range ${a}-${b} with switched endpoints at ${this.i}. You can silence this warning with \`charClass.errOnInvalidRange\`.`);
 
               this.endSourceMapping(charRangeMapping);
               chars.push(withSourceMapping({
@@ -439,14 +452,14 @@ class RegexDescent {
               }, dashMapping));
             }
             else
-              this.err(`invalid range at ${this.i}`);
+              this.err(`Found an unescaped - at the end of a character class at ${this.i}. You can silence this warning with \`charClass.autoescape.dashAtTheEnd\``);
           }
           else
             chars.push(a);
         } while (!this.mayConsume(']'));
       }
       else
-        this.err(`empty charClass at ${this.i}`);
+        this.err(`Found an empty character class at ${this.i}.`);
 
       this.endSourceMapping(atomMapping);
       return withSourceMapping({
@@ -487,7 +500,7 @@ class RegexDescent {
     if (this.peek() === '{') {
       if (!',0123456789'.includes(this.lookahead())) {
         if (!this.config.bound.minMax.autoescapeIfInvalid)
-          this.err(`invalid interval expression at ${this.i}: expected number for min`);
+          this.err(`Found a non-numerical min in an interval expression at ${this.i}. You can silence this error with \`bound.minMax.autoescapeIfInvalid\`.`);
         return x;
       }
 
@@ -498,7 +511,7 @@ class RegexDescent {
         this.setSourceMappingAnchor(boundMapping);
 
         if (!this.config.bound.minMax.allowEmptyMin)
-          this.err(`invalid interval expression at ${this.i}: missing a min`);
+          this.err(`Found an interval expression missing a min at ${this.i}. You can silence this error with \`bound.minMax.allowEmptyMin\`.`);
         max = this.parseNat(); // {,max}
       }
       else {
@@ -522,13 +535,13 @@ class RegexDescent {
       this.mustConsume('}');
 
       if (!this.config.bound.allowMinGTMax && min > max)
-        this.err(`invalid interval expression bind at ${this.i}: min > max`);
+        this.err(`Found an interval expression bind {${min}, ${max}} with switched endpoints at ${this.i}. You can silence this error with \`bound.allowMinGTMax\`.`);
 
       if (this.config.bound.limit != null) {
         if (min > this.config.bound.limit)
-          this.err(`invalid interval expression bind at ${this.i}: min > ${this.config.bound.limit}`);
+          this.err(`Found an interval expression bind {${min}, ${max}} with a overly large min ${min} > ${this.config.bound.limit} at ${this.i}. You can set the maximum value for inteval expression bounds with \`bound.limit\`.`);
         if (max > this.config.bound.limit)
-          this.err(`invalid interval expression bind at ${this.i}: max > ${this.config.bound.limit}`);
+          this.err(`Found an interval expression bind {${min}, ${max}} with a overly large max ${max} > ${this.config.bound.limit} at ${this.i}. You can set the maximum value for inteval expression bounds with \`bound.limit\`.`);
       }
 
       this.endSourceMapping(boundMapping);
@@ -562,7 +575,7 @@ class RegexDescent {
         }
         else {
           if (this.config.anchor.impossibilityHandling === 'err')
-            this.err(`impossible anchor ${this.peek()} at ${this.i}`);
+            this.err(`Found a misplaced anchor ${this.peek()} at ${this.i}. You can change how misplaced anchors are handled with \`anchor.impossibilityHandling\`.`);
 
           if (this.config.anchor.impossibilityHandling === 'ignore') {
             const mapping = this.startSourceMapping();
@@ -630,15 +643,15 @@ class RegexDescent {
   }
 
   parse() {
-    if (this.peek() === '|' && this.errOnOrphanPipe)
-      this.err('pipe cannot start a regex');
+    if (this.peek() === '|' && this.config.errOnOrphanPipe)
+      this.err('Found a pipe at the start of the RegEx. You can silence this error with `errOnOrphanPipe`');
 
     let x = this.parse_();
 
     if (!this.isEOF())
-      this.err('parser error: did not reach EOF after parse');
+      this.err('Internal bug: detected an invariant violation. Did not reach EOF after parsing.');
     if (this.regex[this.i-1] === '|' && this.errOnOrphanPipe)
-      this.err('pipe cannot end a regex');
+      this.err('Found a pipe at the end of the RegEx. You can silence this error with `errOnOrphanPipe`');
 
     return x;
   }

@@ -1,0 +1,14 @@
+{
+  "presets": [
+    ["env", {
+      "targets": {
+        "node": "current"
+      }}],
+    "flow"
+  ],
+  "plugins": [
+    ["transform-react-jsx", {
+        "pragma": "dom"
+    }]
+  ]
+}
