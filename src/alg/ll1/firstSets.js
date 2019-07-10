@@ -69,6 +69,8 @@ export const firstSets = g => {
         // sub is nt
 
         const fiSubA = fiAs.get(sub.x);
+        if (fiSubA == null)
+          throw new Error(`No definition for non-terminal ${sub.x} found.`);
 
         for (const [fi,] of fiSubA) { // assume nt is matched, add all of fi of nt
           if (partEq(fi, epsilon))

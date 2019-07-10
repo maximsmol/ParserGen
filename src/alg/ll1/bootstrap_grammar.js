@@ -3,48 +3,51 @@ import {tok, ref, epsilon, buildGrammar} from './grammarTools';
 export const grammarRep = {
   S: [[ref('Rules')]],
 
-  Rules: [[ref('Rules\'')], [ref('Rule'), ref('Rules\'')]],
+  Rules: [
+    [epsilon],
+    [tok('id'), tok('-'), tok('>'), ref('Subs'), ref('Rules\'')]
+  ],
   'Rules\'': [
     [epsilon],
     [tok('space'), ref('Rules')]
   ],
 
-  Rule: [[tok('id'), tok('-'), tok('>'), ref('AllowNL'), ref('Subs')]],
-
-  Subs: [[ref('Sub'), ref('Subs\'')]],
+  Subs: [
+    [ref('Sub'), ref('Subs\'')]
+  ],
   'Subs\'': [
     [epsilon],
     [ref('Subs')],
-    [tok('|'), ref('AllowNL'), ref('Subs')]
+    [tok('|'), ref('Subs')]
   ],
 
   Sub: [
     [tok('id')],
     [tok('token')],
-    [ref('Str')]
+    [tok('\''), ref('StrPart')]
   ],
 
-  Str: [[tok('\''), ref('StrPart')]],
   StrPart: [
     [tok('\'')],
-    [tok('\\'), ref('Any'), ref('StrPart')],
-    [ref('StrChar'), ref('StrPart')]
+    [tok('\\'), ref('StrEscape')],
+    [tok('strchar'), ref('StrPart')],
+    [tok('id'), ref('StrPart')],
+    [tok('token'), ref('StrPart')],
+    [tok('space'), ref('StrPart')],
+    [tok('-'), ref('StrPart')],
+    [tok('>'), ref('StrPart')],
+    [tok('|'), ref('StrPart')]
   ],
-
-  StrChar: [
-    [tok('strchar')],
-    [tok('id')],
-    [tok('token')],
-    [tok('space')],
-    [tok('-')],
-    [tok('>')],
-    [tok('|')]
-  ],
-  Any: [
-    [ref('StrChar')],
-    [tok('\'')],
-    [tok('\\')]
-  ],
-  AllowNL: [[tok('space')], [epsilon]]
+  StrEscape: [
+    [tok('strchar'), ref('StrPart')],
+    [tok('id'), ref('StrPart')],
+    [tok('token'), ref('StrPart')],
+    [tok('space'), ref('StrPart')],
+    [tok('-'), ref('StrPart')],
+    [tok('>'), ref('StrPart')],
+    [tok('|'), ref('StrPart')],
+    [tok('\''), ref('StrPart')],
+    [tok('\\'), ref('StrPart')]
+  ]
 };
 export const grammar = buildGrammar(grammarRep);
