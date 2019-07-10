@@ -14,9 +14,6 @@ export const renderGrammar = g => renderGrammarRep(repGrammar(g));
 export const grammarToString = g => renderTabular(renderGrammar(g));
 
 export const renderSubPart = x => {
-  if (x['?'] == null || x.x == null)
-    return '&invalid';
-
   if (x['?'] === 'id')
     return x.x;
   if (x['?'] === 'epsilon')
