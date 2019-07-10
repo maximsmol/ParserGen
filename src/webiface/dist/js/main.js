@@ -52,9 +52,12 @@
       send(type, Object.assign(obj, {action: action}));
     };
 
+    let oldInpValue = inp.value;
     inp.addEventListener('keyup', function (e) {
-      if (e.key.length !== 1)
-        return; // todo: make sure there are no keys that we are getting a false-negative on
+      if (inp.value === oldInpValue)
+        return;
+
+      oldInpValue = inp.value;
 
       sendAction('regex-parser', 'parse', {
         regex: inp.value
