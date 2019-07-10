@@ -23,8 +23,6 @@
     "eslint-plugin-babel": "^5.1.0",
     "eslint-plugin-flowtype": "^2.46.3",
     "eslint-plugin-react": "^7.8.2",
-    "flow-bin": "^0.72.0",
-    "node-sdl2": "^2.1.2",
-    "sdl2-image": "^2.0.3"
+    "flow-bin": "^0.72.0"
   }
 }
