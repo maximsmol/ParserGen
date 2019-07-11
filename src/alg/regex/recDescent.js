@@ -111,6 +111,11 @@ export class RegexDescent {
   printRange() {
     let n = Math.min(40, this.i);
     this.addErrorToReport(this.regex.substring(this.i-n, this.i+n));
+
+    if (n-1 < 0) {
+      this.addErrorToReport('^');
+      return;
+    }
     this.addErrorToReport(' '.repeat(n-1)+'^');
   }
   err(x) {
@@ -644,14 +649,14 @@ export class RegexDescent {
 
   parse() {
     if (this.peek() === '|' && this.config.errOnOrphanPipe)
-      this.err('Found a pipe at the start of the RegEx. You can silence this error with `errOnOrphanPipe`');
+      this.err('Found a pipe at the start of the RegEx. You can silence this error with `errOnOrphanPipe`.');
 
     let x = this.parse_();
 
     if (!this.isEOF())
       this.err('Internal bug: detected an invariant violation. Did not reach EOF after parsing.');
     if (this.regex[this.i-1] === '|' && this.errOnOrphanPipe)
-      this.err('Found a pipe at the end of the RegEx. You can silence this error with `errOnOrphanPipe`');
+      this.err('Found a pipe at the end of the RegEx. You can silence this error with `errOnOrphanPipe`.');
 
     return x;
   }
