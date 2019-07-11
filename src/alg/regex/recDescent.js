@@ -436,7 +436,7 @@ export class RegexDescent {
               const b = this.parseChar(controlChars, autoescapeChars);
 
               if (this.config.charClass.errOnInvalidRange && a.x.charCodeAt(0) > b.x.charCodeAt(0))
-                this.err(`Found a range ${a}-${b} with switched endpoints at ${this.i}. You can silence this warning with \`charClass.errOnInvalidRange\`.`);
+                this.err(`Found a range ${a.x}-${b.x} with switched endpoints at ${this.i}. You can silence this warning with \`charClass.errOnInvalidRange\`.`);
 
               this.endSourceMapping(charRangeMapping);
               chars.push(withSourceMapping({
