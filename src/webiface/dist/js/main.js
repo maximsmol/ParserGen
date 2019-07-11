@@ -107,7 +107,58 @@
             return;
           }
 
-          out.innerText = JSON.stringify(obj.res, null, 2);
+          var visit = function (obj, indent) {
+            if (obj['?'] === 'char') {
+              if (obj.escaped)
+                return indent+'\\'+obj.x+'\n';
+              return indent+obj.x+'\n';
+            }
+            else if (obj['?'] === '&')
+              return indent+'EOF'+'\n';
+            else if (obj['?'] === '.')
+              return indent+'.'+'\n';
+            else if (
+                obj['?'] === '(?:)' ||
+                obj['?'] === '(?=)' ||
+                obj['?'] === '(?!)' ||
+                obj['?'] === '(?<=)' ||
+                obj['?'] === '(?<!)' ||
+                obj['?'] === '()') {
+              var res = indent+obj['?']+'\n';
+
+              for (var i = 0; i < obj.x.length; ++i)
+                res += visit(obj.x[i], indent+'  ');
+
+              return res;
+            }
+            else if (obj['?'] === 'a-b') {
+              var res = indent+'a-b'+'\n';
+
+              res += visit(obj.a, indent+'  ');
+              res += visit(obj.b, indent+'  ');
+
+              return res;
+            }
+            else if (obj['?'] === '[]') {
+              var res = indent;
+              if (!obj.inverse)
+                res += '[]';
+              else
+                res += '[^]';
+              res += '\n';
+
+              for (var i = 0; i < obj.x.length; ++i)
+                res += visit(obj.x[i], indent+'  ');
+
+              return res;
+            }
+            else if (obj['?'] === '+' || obj['?'] === '*' || obj['?'] === '?') {
+              return indent+obj['?']+'\n'+visit(obj.x, indent+'  ');
+            }
+
+            return JSON.stringify(obj, null, 2);
+          };
+          out.innerText = visit(obj.res, '');
           sendOk(obj);
         }
         else if (obj.action === 'err') {
