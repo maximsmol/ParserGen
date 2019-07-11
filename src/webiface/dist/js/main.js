@@ -155,6 +155,15 @@
             else if (obj['?'] === '+' || obj['?'] === '*' || obj['?'] === '?') {
               return indent+obj['?']+'\n'+visit(obj.x, indent+'  ');
             }
+            else if (obj['?'] === '^' || obj['?'] === '$')
+              return indent+obj['?']+'\n';
+            else if (obj['?'] === '{n}')
+              return indent+'{'+obj.n+'}\n'+visit(obj.x, indent+'  ');
+            else if (obj['?'] === '{a,b}')
+              return indent+'{'+obj.min+', '+obj.max+'}\n'+visit(obj.x, indent+'  ');
+            else if (obj['?'] === '|') {
+              return indent+obj['?']+'\n'+visit(obj.a, indent+'  ')+visit(obj.b, indent+'  ');
+            }
 
             return JSON.stringify(obj, null, 2);
           };
