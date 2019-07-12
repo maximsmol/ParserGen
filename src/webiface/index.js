@@ -43,7 +43,7 @@ export const genIndex = () => {
                 <input class='input-regex font-150' id='regex-parser-input' type='text' placeholder='RegEx'/>
               </div>
               <div>
-                <pre class='regex-parser-output' id='regex-parser-output'/>
+                <div class='regex-parser-output font-150' id='regex-parser-output'/>
               </div>
             </div>
             <div class='tab' id='tab-regex-nfa'>

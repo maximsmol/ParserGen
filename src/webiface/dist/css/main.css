@@ -46,6 +46,7 @@ body {
 
   border-radius: .5em .5em 0 0;
   cursor: pointer;
+  user-select: none;
 }
 
 .tab-active {
@@ -77,8 +78,25 @@ body {
 }
 
 .regex-parser-output {
-  white-space: pre-wrap;
+  padding: 1em 0;
+  font-family: monospace;
 }
+
+.json-tree-subtrees {
+  padding-left: 1em;
+}
+
+.json-tree-caret {
+  padding-right: .5em;
+  color: #a9daf2;
+  cursor: pointer;
+  user-select: none;
+}
+
+.json-tree-subtree-closed {
+  display: none;
+}
+
 
 .font-150 {
   font-size: 150%;
