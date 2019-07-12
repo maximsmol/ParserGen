@@ -107,16 +107,29 @@
             return;
           }
 
-          var visit = function (obj, indent) {
+          var visit = function (obj) {
+            var res = document.createElement('div');
+            res.className = 'json-tree-object';
+
+            var labelContainer = document.createElement('div');
+            labelContainer.className = 'json-tree-labelContainer';
+
+            var label = document.createElement('span');
+            label.className = 'json-tree-label';
+
+            var subtrees = document.createElement('div');
+            subtrees.className = 'json-tree-subtrees';
+
             if (obj['?'] === 'char') {
               if (obj.escaped)
-                return indent+'\\'+obj.x+'\n';
-              return indent+obj.x+'\n';
+                label.innerText = '\\'+obj.x;
+              else
+                label.innerText = obj.x;
             }
             else if (obj['?'] === '&')
-              return indent+'EOF'+'\n';
+              label.innerText = 'EOF';
             else if (obj['?'] === '.')
-              return indent+'.'+'\n';
+              label.innerText = '.';
             else if (
                 obj['?'] === '(?:)' ||
                 obj['?'] === '(?=)' ||
@@ -124,50 +137,80 @@
                 obj['?'] === '(?<=)' ||
                 obj['?'] === '(?<!)' ||
                 obj['?'] === '()') {
-              var res = indent+obj['?']+'\n';
+              label.innerText = obj['?'];
 
               for (var i = 0; i < obj.x.length; ++i)
-                res += visit(obj.x[i], indent+'  ');
-
-              return res;
+                subtrees.appendChild(visit(obj.x[i]));
             }
             else if (obj['?'] === 'a-b') {
-              var res = indent+'a-b'+'\n';
+              label.innerText = 'a-b';
 
-              res += visit(obj.a, indent+'  ');
-              res += visit(obj.b, indent+'  ');
-
-              return res;
+              subtrees.appendChild(visit(obj.a));
+              subtrees.appendChild(visit(obj.b));
             }
             else if (obj['?'] === '[]') {
-              var res = indent;
               if (!obj.inverse)
-                res += '[]';
+                label.innerText = '[]';
               else
-                res += '[^]';
-              res += '\n';
+                label.innerText = '[^]';
 
               for (var i = 0; i < obj.x.length; ++i)
-                res += visit(obj.x[i], indent+'  ');
-
-              return res;
+                subtrees.appendChild(visit(obj.x[i]));
             }
             else if (obj['?'] === '+' || obj['?'] === '*' || obj['?'] === '?') {
-              return indent+obj['?']+'\n'+visit(obj.x, indent+'  ');
+              label.innerText = obj['?'];
+              subtrees.appendChild(visit(obj.x));
             }
             else if (obj['?'] === '^' || obj['?'] === '$')
-              return indent+obj['?']+'\n';
-            else if (obj['?'] === '{n}')
-              return indent+'{'+obj.n+'}\n'+visit(obj.x, indent+'  ');
-            else if (obj['?'] === '{a,b}')
-              return indent+'{'+obj.min+', '+obj.max+'}\n'+visit(obj.x, indent+'  ');
+              label.innerText = obj['?'];
+            else if (obj['?'] === '{n}') {
+              label.innerText = '{'+obj.n+'}';
+              subtrees.appendChild(visit(obj.x));
+            }
+            else if (obj['?'] === '{a,b}') {
+              label.innerText = '{'+obj.min+', '+obj.max+'}';
+              subtrees.appendChild(visit(obj.x));
+            }
             else if (obj['?'] === '|') {
-              return indent+obj['?']+'\n'+visit(obj.a, indent+'  ')+visit(obj.b, indent+'  ');
+              label.innerText = obj['?'];
+              subtrees.appendChild(visit(obj.a));
+              subtrees.appendChild(visit(obj.b));
+            }
+            else {
+              label.innerText = JSON.stringify(obj, null, 2);
             }
 
-            return JSON.stringify(obj, null, 2);
+            if (subtrees.children.length) {
+              var subtreeOpen = true;
+
+              var caret = document.createElement('span');
+              caret.className = 'json-tree-caret';
+              caret.innerText = subtreeOpen ? '↓' : '→';
+              labelContainer.appendChild(caret);
+
+              caret.addEventListener('click', function () {
+                subtreeOpen = !subtreeOpen;
+
+                caret.innerText = subtreeOpen ? '↓' : '→';
+
+                if (subtreeOpen)
+                  subtrees.classList.remove('json-tree-subtree-closed');
+                else
+                  subtrees.classList.add('json-tree-subtree-closed');
+              });
+            }
+            labelContainer.appendChild(label);
+            res.appendChild(labelContainer);
+            res.appendChild(subtrees);
+
+            return res;
           };
-          out.innerText = visit(obj.res, '');
+
+          while (out.firstChild != null)
+            out.removeChild(out.firstChild);
+
+          out.appendChild(visit(obj.res));
+
           sendOk(obj);
         }
         else if (obj.action === 'err') {
