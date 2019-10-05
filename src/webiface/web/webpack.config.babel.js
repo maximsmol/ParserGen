@@ -1,10 +1,11 @@
+import fs from 'fs';
 import path from 'path';
 
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 
 const p = x => path.resolve(__dirname, x);
 
-const mode = 'development';
+const mode = fs.existsSync(p('devlock')) ? 'development' : 'production';
 
 module.exports = {
   entry: p('script/main.js'),
