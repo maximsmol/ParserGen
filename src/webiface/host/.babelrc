@@ -1,14 +1,11 @@
 {
   "presets": [
-    ["env", {
+    ["@babel/preset-env", {
       "targets": {
         "node": "current"
       }}],
-    "flow"
+    "@babel/preset-flow"
   ],
   "plugins": [
-    ["transform-react-jsx", {
-        "pragma": "dom"
-    }]
   ]
 }

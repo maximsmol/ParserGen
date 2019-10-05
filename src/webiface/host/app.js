@@ -8,9 +8,8 @@ import send from 'koa-send';
 import websocket from 'koa-easy-ws';
 
 import {handleWs} from './ws';
-import {genIndex} from './index';
 
-const distPath = fs.realpathSync(path.join(__dirname, './dist'));
+const distPath = fs.realpathSync(path.join(__dirname, '../web/dist'));
 
 const app = new Koa();
 
@@ -25,7 +24,7 @@ app.use(async (ctx)=>{
   }
 
   if (ctx.path === '/') {
-    ctx.body = genIndex();
+    await send(ctx, 'index.html', {root: distPath});
     return;
   }
 
