@@ -29,14 +29,6 @@ const cloneGroupData = groups => {
 
 export let cloneN = 0;
 export class NFAEval {
-  states;
-  nextStates;
-  nfa;
-  i;
-
-  lookbehindEvals;
-  lookaheadNFAs;
-
   constructor(nfa, doNotInitDynamicState) {
     const keyOrder = ['nfaState', 'groupData', 'lookaheadEvals'];
     this.states = new DictKeyedSet(keyOrder);

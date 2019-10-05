@@ -1,10 +1,6 @@
 import util from 'util';
 
 export class DictKeyedMap {
-  data;
-  keyOrder;
-  size;
-
   constructor(keyOrder) {
     this.data = new Map();
     this.keyOrder = keyOrder;
