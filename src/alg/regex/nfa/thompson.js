@@ -35,13 +35,6 @@ const getEndOfNode = (node) => {
 };
 
 class ThompsonConstructor {
-  stateMappings;
-  arrows;
-  lookaroundNFAs;
-
-  groupBoundaries;
-  groupId;
-
   constructor() {
     this.lastState = 1; // s, f, ...
     this.stateMappings = [];

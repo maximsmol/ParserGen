@@ -12,11 +12,6 @@ const withSourceMapping = (arr, mapping) => {
 
 // http://pubs.opengroup.org/onlinepubs/9699919799/
 export class RegexDescent {
-  regex;
-  i;
-  res;
-  config;
-
   // add ^ and $ special symbols
   constructor(regex, config) {
     if (regex === '')

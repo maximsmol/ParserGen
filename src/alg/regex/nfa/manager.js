@@ -3,11 +3,6 @@ import {buildNFA} from './thompson';
 import {NFAEval} from './eval';
 
 export class NFAEvalManager {
-  regex;
-  ast;
-  nfa;
-  nfaEval;
-
   constructor(regex) {
     this.regex = regex;
     this.ast = parse(regex);
@@ -15,7 +10,6 @@ export class NFAEvalManager {
     this.nfaEval = new NFAEval(this.nfa);
   }
 
-  str;
   setStr(str) {
     this.str = str;
   }
