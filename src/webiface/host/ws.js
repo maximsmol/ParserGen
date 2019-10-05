@@ -1,4 +1,4 @@
-import {RegexDescent} from '../alg/regex/recDescent';
+import {RegexDescent} from '../../alg/regex/recDescent';
 
 export const handleWs = (ws) => {
   let packetCounter = 0;

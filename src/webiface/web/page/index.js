@@ -1,33 +1,41 @@
-import {dom} from './dom';
+import {dom} from '../util/dom';
+
+import webpackMode from '@@webpackMode';
+const pretty = webpackMode === 'development';
 
 const ieWarning = [
   '<!--[if IE]>',
-  '<p class="browserupgrade">',
-  'You are using an <strong>outdated</strong> browser.',
-  ' Please <a href="https://browsehappy.com/">upgrade your browser</a>',
-  ' to improve your experience and security.</p>',
-  '<![endif]-->'
+  '  <p class="browserupgrade">',
+  '   You are using an <strong>outdated</strong> browser.',
+  '   Please <a href="https://browsehappy.com/">upgrade your browser</a>',
+  '   to improve your experience and security.',
+  '  </p>',
+  '<![endif]-->',
+  ''
 ];
 
-export const genIndex = () => {
-  return '<!doctype html>' +
+require('../style/normalize.styl');
+require('../style/main.styl');
+
+export default () => {
+  return '<!doctype html>' + (pretty ? '\n' : '')+
     <html lang='en'>
       <head>
-        <meta charset="utf-8"/>
+        <meta charset='utf-8'/>
         <title>ParserGen</title>
-        <meta name="description" content=""/>
-        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <meta name='description' content=''/>
+        <meta name='viewport' content='width=device-width, initial-scale=1'/>
 
         {/*<link rel="manifest" href="site.webmanifest"/>
         <link rel="apple-touch-icon" href="icon.png"/>*/}
 
-        <link rel="stylesheet" href="css/normalize.css"/>
-        <link rel="stylesheet" href="css/main.css"/>
+        <link rel='stylesheet' href={require('../style/normalize.styl')}/>
+        <link rel='stylesheet' href={require('../style/main.styl')}/>
 
-        <meta name="theme-color" content="#fafafa"/>
+        <meta name='theme-color' content='#fafafa'/>
       </head>
       <body>
-        {{str: ieWarning.join('')}}
+        {{str: ieWarning.join(pretty ? '\n' : '')}}
         <div class='root'>
           <div class='tabs fil'>
             <div class='tab-button-row'>
@@ -51,7 +59,6 @@ export const genIndex = () => {
             </div>
           </div>
         </div>
-        <script src='js/main.js'></script>
       </body>
     </html>.str;
 };
