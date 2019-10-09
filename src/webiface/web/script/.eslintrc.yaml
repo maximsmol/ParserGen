@@ -1,0 +1,4 @@
+plugins:
+  - compat
+rules:
+  compat/compat: error

@@ -72,7 +72,6 @@ ws.addEventListener('open', () => {
     }
 
     var gName = 'RECV: '+obj['?']+'#'+obj.id;
-    console.groupCollapsed(gName);
     console.log(obj);
     console.groupEnd(gName);
 
