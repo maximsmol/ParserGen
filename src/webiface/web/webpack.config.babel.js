@@ -3,6 +3,8 @@ import path from 'path';
 
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 
+import postcssNormalize from 'postcss-normalize';
+
 const p = x => path.resolve(__dirname, x);
 
 const mode = fs.existsSync(p('devlock')) ? 'development' : 'production';
@@ -56,6 +58,14 @@ module.exports = {
               // modules: true,
               sourceMap: true,
               importLoaders: 1
+            }
+          },
+          {
+            loader: 'postcss-loader',
+            options: {
+              plugins: () => [
+                postcssNormalize()
+              ]
             }
           },
           {
